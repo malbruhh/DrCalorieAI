@@ -1,2 +1,2 @@
-# DrAIFoodie-
-Dr AI Foodie: Personalized Calorie Tracker
+# DrCalorieAI-
+Dr Calorie AI: Personalized Calorie Tracker
