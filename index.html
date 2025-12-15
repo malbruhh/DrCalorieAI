@@ -144,7 +144,12 @@
             <!-- HISTORY LIST -->
             <div class="bg-history rounded-[32px] shadow-sm border border-history p-6 flex-grow overflow-hidden flex flex-col">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-history-title font-bold text-lg">Food History</h2>
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-history-title font-bold text-lg">Food History</h2>
+                        <button id="undoBtn" onclick="undoDelete()" class="hidden text-xs bg-white border border-green-200 text-green-700 hover:bg-green-50 px-2 py-1 rounded-lg flex items-center gap-1 transition shadow-sm">
+                            <i class="fa-solid fa-rotate-left"></i> Undo
+                        </button>
+                    </div>
                     <span id="itemCount" class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">0 items</span>
                 </div>
                 <div class="flex-grow overflow-y-auto custom-scroll pr-2">

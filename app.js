@@ -6,6 +6,7 @@ let current = { cals: 0, p: 0, c: 0, f: 0 };
 let history = [];
 let chartInstance = null;
 let lastScore = 50; // Default score for graph line
+let lastDeleted = null; // Stores the deleted item for Undo
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -80,6 +81,11 @@ async function analyzeFood() {
         updateDashboard();
         updateChart(); // Refresh chart if modal is open
 
+        // Clear Undo state on new add (optional, but cleaner UX)
+        lastDeleted = null;
+        const undoBtn = document.getElementById('undoBtn');
+        if(undoBtn) undoBtn.classList.add('hidden');
+
     } catch (error) {
         console.error(error);
         alert("Error: " + error.message);
@@ -110,18 +116,18 @@ function renderHistory() {
         li.innerHTML = `
             <div class="flex justify-between items-start mb-3">
                 <div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <i class="fa-solid fa-plus text-green-500 text-xs"></i>
                         <span class="font-bold text-gray-800 capitalize text-base">${item.food_name}</span>
+                        <span class="badge-cal px-2 py-0.5 rounded text-[11px] font-mono font-bold ml-1">${item.calories} kcal</span>
                     </div>
-                    <span class="text-[10px] uppercase font-bold tracking-wider ml-5 text-${fuzzy.colorName}-600 bg-${fuzzy.colorName}-100 px-2 py-0.5 rounded-md">${fuzzy.category}</span>
+                    <span class="text-[10px] uppercase font-bold tracking-wider ml-5 mt-1 block w-fit text-${fuzzy.colorName}-600 bg-${fuzzy.colorName}-100 px-2 py-0.5 rounded-md">${fuzzy.category}</span>
                 </div>
                 <button onclick="deleteItem(${index})" class="text-gray-300 hover:text-red-500 transition px-2">
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
             </div>
             <div class="flex gap-2 text-xs pl-5 overflow-x-auto no-scrollbar">
-                <span class="badge-cal px-2 py-1 rounded-lg font-mono font-medium">${item.calories} kcal</span>
                 <span class="badge-p px-2 py-1 rounded-lg font-mono font-medium">${item.protein}g P</span>
                 <span class="badge-c px-2 py-1 rounded-lg font-mono font-medium">${item.carbs}g C</span>
                 <span class="badge-f px-2 py-1 rounded-lg font-mono font-medium">${item.fats}g F</span>
@@ -134,12 +140,52 @@ function renderHistory() {
 // Make globally accessible for HTML onclick buttons
 window.deleteItem = function(index) {
     const item = history[index];
+    
+    // 1. Save state for Undo
+    lastDeleted = { item: item, index: index };
+
+    // 2. Remove values
     current.cals -= item.calories;
     current.p -= item.protein;
     current.c -= item.carbs;
     current.f -= item.fats;
     
     history.splice(index, 1);
+    
+    // 3. Show Undo Button
+    const undoBtn = document.getElementById('undoBtn');
+    if (undoBtn) {
+        undoBtn.classList.remove('hidden');
+        undoBtn.classList.add('fade-in');
+    }
+
+    renderHistory();
+    updateDashboard();
+};
+
+window.undoDelete = function() {
+    if (!lastDeleted) return;
+
+    const { item, index } = lastDeleted;
+
+    // 1. Restore Values
+    current.cals += item.calories;
+    current.p += item.protein;
+    current.c += item.carbs;
+    current.f += item.fats;
+
+    // 2. Restore Item to original position
+    // Use splice to insert back exactly where it was
+    if (index >= 0 && index <= history.length) {
+        history.splice(index, 0, item);
+    } else {
+        history.push(item); // Fallback
+    }
+
+    // 3. Clear state & Hide Button
+    lastDeleted = null;
+    document.getElementById('undoBtn').classList.add('hidden');
+
     renderHistory();
     updateDashboard();
 };
