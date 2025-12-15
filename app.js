@@ -53,42 +53,62 @@ async function analyzeFood() {
     }
 }
 
-function displayResult(data) {
-    // 1. Display Server Data
-    document.getElementById('calVal').innerText = data.calories;
-    document.getElementById('aiThought').innerText = `"${data.reasoning_summary || 'Analysis Complete'}"`;
+function displayResult(dataInput) {
+    // Handle both array (multiple items) and single object
+    const items = Array.isArray(dataInput) ? dataInput : [dataInput];
 
-    // 2. Run Client-Side Fuzzy Logic
-    // We pass the raw numbers from the AI to our JS Fuzzy Engine
-    const fuzzyResult = calculateFuzzyHealth(
-        data.calories || 0,
-        data.protein || 0,
-        data.fats || 0,
-        data.carbs || 0
-    );
+    // Variables for Aggregate Totals
+    let totalCals = 0;
+    let totalP = 0;
+    let totalC = 0;
+    let totalF = 0;
     
-    // 3. Update the Badge with Fuzzy Result
-    const typeEl = document.getElementById('gradeVal');
-    typeEl.innerText = fuzzyResult.category; // e.g., "Very Healthy" or "Junk Food"
-    typeEl.className = `text-xl font-bold uppercase tracking-wider ${fuzzyResult.colorClass}`; 
-
-    // 4. Update Log List
     const logList = document.getElementById('foodLog');
-    const li = document.createElement('li');
-    li.className = "bg-slate-800 p-3 rounded-lg border border-slate-700 flex justify-between items-center text-sm mb-2";
-    li.innerHTML = `
-        <div>
-            <span class="font-bold text-white block">${data.food_name}</span>
-            <span class="text-xs text-${fuzzyResult.colorName}-400">${fuzzyResult.category}</span>
-        </div>
-        <div class="text-right">
-            <span class="text-blue-400 font-mono block">${data.calories} kcal</span>
-            <span class="text-xs text-slate-500">
-                P:${data.protein}g C:${data.carbs}g F:${data.fats}g
-            </span>
-        </div>
-    `;
-    logList.prepend(li);
+
+    // 1. Process Individual Items
+    items.forEach(item => {
+        // Add to totals
+        totalCals += item.calories || 0;
+        totalP += item.protein || 0;
+        totalC += item.carbs || 0;
+        totalF += item.fats || 0;
+
+        // Calculate Fuzzy Score for THIS specific item
+        const itemFuzzy = calculateFuzzyHealth(
+            item.calories || 0,
+            item.protein || 0,
+            item.fats || 0,
+            item.carbs || 0
+        );
+
+        // Create List Element
+        const li = document.createElement('li');
+        li.className = "bg-slate-800 p-3 rounded-lg border border-slate-700 flex justify-between items-center text-sm mb-2";
+        li.innerHTML = `
+            <div>
+                <span class="font-bold text-white block">${item.food_name}</span>
+                <span class="text-xs text-${itemFuzzy.colorName}-400">${itemFuzzy.category}</span>
+            </div>
+            <div class="text-right">
+                <span class="text-blue-400 font-mono block">${item.calories} kcal</span>
+                <span class="text-xs text-slate-500">
+                    P:${item.protein}g C:${item.carbs}g F:${item.fats}g
+                </span>
+            </div>
+        `;
+        logList.prepend(li);
+    });
+
+    // 2. Update Main Display with TOTALS
+    document.getElementById('calVal').innerText = totalCals;
+    document.getElementById('aiThought').innerText = items.length > 1 ? "Meal Analysis Complete" : `"${items[0].reasoning_summary}"`;
+
+    // 3. Fuzzy Logic for the WHOLE MEAL (Aggregate)
+    const mealFuzzy = calculateFuzzyHealth(totalCals, totalP, totalF, totalC);
+    
+    const typeEl = document.getElementById('gradeVal');
+    typeEl.innerText = mealFuzzy.category; 
+    typeEl.className = `text-xl font-bold uppercase tracking-wider ${mealFuzzy.colorClass}`; 
 }
 
 // ==========================================
@@ -98,7 +118,6 @@ function displayResult(data) {
 function calculateFuzzyHealth(calories, protein, fats, carbs) {
     
     // --- 1. FUZZIFICATION ---
-    // Helper to calculate triangular membership
     const tri = (val, low, peak, high) => {
         if (val <= low || val >= high) return 0;
         if (val === peak) return 1;
@@ -106,15 +125,12 @@ function calculateFuzzyHealth(calories, protein, fats, carbs) {
         return (high - val) / (high - peak);
     };
 
-    // Helper for trapezoidal (Left shoulder / Right shoulder)
     const trapLow = (val, peak, high) => (val <= peak ? 1 : val >= high ? 0 : (high - val) / (high - peak));
     const trapHigh = (val, low, peak) => (val >= peak ? 1 : val <= low ? 0 : (val - low) / (peak - low));
 
-    // Define Membership Degrees (0.0 to 1.0)
-    // Adjust these ranges based on a standard "meal" or "serving" context
     const f = {
         calories: {
-            low: trapLow(calories, 200, 400),
+            low: trapLow(calories, 150, 400), 
             med: tri(calories, 300, 500, 700),
             high: trapHigh(calories, 600, 800)
         },
@@ -136,9 +152,6 @@ function calculateFuzzyHealth(calories, protein, fats, carbs) {
     };
 
     // --- 2. RULE EVALUATION ---
-    // We define rules that contribute to specific scores (Singleton outputs)
-    // Very Healthy (Score 100), Healthy (75), Not Healthy (40), Junk (10)
-
     let ruleStrengths = {
         veryHealthy: 0,
         healthy: 0,
@@ -154,15 +167,15 @@ function calculateFuzzyHealth(calories, protein, fats, carbs) {
     const r2 = Math.min(f.protein.med, f.carbs.med, f.fats.med);
     ruleStrengths.healthy = Math.max(ruleStrengths.healthy, r2);
 
-    // RULE 3: Low Calories AND High Protein = Very Healthy (Light snack)
+    // RULE 3: Low Calories AND High Protein = Very Healthy
     const r3 = Math.min(f.calories.low, f.protein.high);
     ruleStrengths.veryHealthy = Math.max(ruleStrengths.veryHealthy, r3);
 
-    // RULE 4: High Fats AND High Carbs = Junk Food (Donut/Pizza zone)
+    // RULE 4: High Fats AND High Carbs = Junk Food
     const r4 = Math.min(f.fats.high, f.carbs.high);
     ruleStrengths.junk = Math.max(ruleStrengths.junk, r4);
 
-    // RULE 5: High Calories AND Low Protein = Not Healthy (Empty calories)
+    // RULE 5: High Calories AND Low Protein = Not Healthy
     const r5 = Math.min(f.calories.high, f.protein.low);
     ruleStrengths.notHealthy = Math.max(ruleStrengths.notHealthy, r5);
 
@@ -170,15 +183,27 @@ function calculateFuzzyHealth(calories, protein, fats, carbs) {
     const r6 = Math.min(f.carbs.high, f.protein.low);
     ruleStrengths.junk = Math.max(ruleStrengths.junk, r6);
 
-    // Default Rule: If nothing matches strongly, lean towards "Not Healthy" slightly
-    // This prevents division by zero if all rules are 0
+    // --- NEW RULES FOR SNACKS (Fix for Milk) ---
+
+    // RULE 7: Low Calories AND (Low or Med Fat) AND (Low or Med Carbs) = Healthy 
+    // Captures Milk, small sandwiches, etc.
+    const r7 = Math.min(
+        f.calories.low, 
+        Math.max(f.fats.low, f.fats.med), 
+        Math.max(f.carbs.low, f.carbs.med)
+    );
+    ruleStrengths.healthy = Math.max(ruleStrengths.healthy, r7);
+
+    // RULE 8: Low Calories AND Med Protein = Very Healthy
+    // Captures Greek Yogurt, Milk, Protein shakes
+    const r8 = Math.min(f.calories.low, f.protein.med);
+    ruleStrengths.veryHealthy = Math.max(ruleStrengths.veryHealthy, r8);
+
+
+    // Default Rule: Small fallback
     ruleStrengths.notHealthy = Math.max(ruleStrengths.notHealthy, 0.1); 
 
-
-    // --- 3. AGGREGATION & DEFUZZIFICATION (Centroid Method equivalent) ---
-    // We treat the output as singletons: 
-    // VeryHealthy=100, Healthy=75, NotHealthy=40, Junk=10
-    
+    // --- 3. AGGREGATION & DEFUZZIFICATION ---
     const numerator = (ruleStrengths.veryHealthy * 100) + 
                       (ruleStrengths.healthy * 75) + 
                       (ruleStrengths.notHealthy * 40) + 
@@ -189,7 +214,8 @@ function calculateFuzzyHealth(calories, protein, fats, carbs) {
                         ruleStrengths.notHealthy + 
                         ruleStrengths.junk;
 
-    const healthScore = numerator / denominator;
+    // Prevent division by zero
+    const healthScore = denominator === 0 ? 50 : numerator / denominator;
 
     // --- 4. MAP SCORE TO CATEGORY ---
     if (healthScore >= 80) return { category: "Very Healthy", colorClass: "text-emerald-400", colorName: "emerald" };
