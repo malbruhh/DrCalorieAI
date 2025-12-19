@@ -10,16 +10,58 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #b57edc; }
+        /* Base Transition for Theme Switching */
+        body { 
+            transition: background 0.5s ease, color 0.5s ease;
+            font-family: 'Inter', sans-serif; 
+            background-color: #F8FAFC; 
+            color: #1e293b;
+        }
+
         .custom-scroll::-webkit-scrollbar { width: 5px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        .bg-tracker { background-color: #FFF8F2; } .border-tracker { border-color: #FFE0C2; }
-        .bg-history { background-color: #F0FDF4; } .border-history { border-color: #DCFCE7; }
-        
+        /* Light Mode Panels */
+        .glass-panel { transition: all 0.5s ease; }
+        .bg-tracker { background-color: #FFF8F2; border: 1px solid #FFE0C2; } 
+        .bg-history { background-color: #F0FDF4; border: 1px solid #DCFCE7; }
+        .bg-ai { background-color: #FFFFFF; border: 1px solid #f1f5f9; }
+        .item-card { background-color: #FFFFFF; border: 1px solid #f1f5f9; }
+
+        /* Dark Mode Theme */
+        body.theme-dark {
+            background: linear-gradient(135deg, #020617 0%, #1e1b4b 50%, #3b0764 100%);
+            color: #f8fafc;
+        }
+
+        body.theme-dark .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Distinct Dark Mode Accents */
+        body.theme-dark .bg-tracker { border-color: rgba(249, 115, 22, 0.3); } 
+        body.theme-dark .bg-history { border-color: rgba(34, 197, 94, 0.3); }
+        body.theme-dark .bg-ai { 
+            background: rgba(88, 28, 135, 0.1); /* Deep Purple Glass */
+            border-color: rgba(168, 85, 247, 0.3); 
+        }
+        body.theme-dark .item-card { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); }
+        body.theme-dark .bg-history h2 { color: #4ade80; }
+        body.theme-dark .bg-tracker h2 { color: #fb923c; }
+        body.theme-dark .bg-ai h2 { color: #c084fc; }
+        body.theme-dark input, body.theme-dark select, body.theme-dark textarea { 
+            background: rgba(255,255,255,0.05) !important; 
+            color: #f8fafc !important;
+            border-color: rgba(255,255,255,0.1) !important;
+        }
+
+        /* Modal Overlay */
         .modal-overlay { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); }
+        body.theme-dark .modal-overlay { background: rgba(0, 0, 0, 0.7); }
         
         input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 5px; background: #e2e8f0; outline: none; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ea580c; cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
@@ -27,17 +69,24 @@
 </head>
 <body class="h-screen flex flex-col p-4 lg:p-8 overflow-hidden relative">
 
-    <header class="mb-8 flex-shrink-0">
-        <div class="w-[250px] h-[150px] bg-white border-2 border-dashed border-gray-300 rounded-3xl flex items-center justify-center text-gray-400 font-medium shadow-sm">
+    <header class="mb-8 flex-shrink-0 flex justify-between items-start">
+        <!-- LOGO PLACEHOLDER -->
+        <div class="w-[250px] h-[150px] glass-panel rounded-3xl flex items-center justify-center text-gray-400 font-medium shadow-sm">
             <div class="text-center">
-                <i class="fa-solid fa-image text-3xl mb-2 block"></i>
-                <span>LOGO (250x150)</span>
+                <i class="fa-solid fa-image text-3xl mb-2 block opacity-20"></i>
+                <span class="opacity-50">LOGO (250x150)</span>
             </div>
         </div>
+
+        <!-- THEME TOGGLE BUTTON -->
+        <button id="themeToggleBtn" onclick="toggleTheme()" class="w-12 h-12 glass-panel rounded-2xl flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all duration-300">
+            <i class="fa-solid fa-sun text-xl text-orange-400"></i>
+        </button>
     </header>
 
     <div class="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
-        <div class="lg:col-span-3 h-full bg-history rounded-[32px] shadow-sm border border-history p-6 flex flex-col overflow-hidden">
+        <!-- COLUMN 1: HISTORY -->
+        <div class="lg:col-span-3 h-full glass-panel bg-history rounded-[32px] shadow-sm p-6 flex flex-col overflow-hidden">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-green-800 font-bold text-lg">History</h2>
                 <span id="itemCount" class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">0 items</span>
@@ -47,11 +96,12 @@
             </div>
         </div>
 
+        <!-- COLUMN 2: TRACKER & AI -->
         <div class="lg:col-span-5 h-full flex flex-col gap-6 min-h-0">
             <div id="trackerCardContainer" class="relative">
-                <div class="bg-tracker rounded-[32px] shadow-sm border border-tracker p-6 relative flex-shrink-0">
+                <div class="glass-panel bg-tracker rounded-[32px] shadow-sm p-6 relative flex-shrink-0">
                     <div class="absolute top-6 right-6 flex gap-3 z-10">
-                        <button onclick="toggleEditMode()" id="editBtn" class="bg-orange-100 text-orange-600 hover:bg-orange-200 w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90">
+                        <button onclick="toggleEditMode()" id="editBtn" class="bg-orange-100 text-orange-600 hover:bg-orange-200 w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 shadow-sm">
                             <i class="fa-solid fa-pen text-sm"></i>
                         </button>
                     </div>
@@ -62,8 +112,8 @@
                             <div class="relative w-40 h-40 flex-shrink-0">
                                 <canvas id="calorieDonut"></canvas>
                                 <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                                    <span id="calFraction" class="text-sm font-bold text-gray-800 leading-tight">0/2000</span>
-                                    <span class="text-[10px] text-gray-400 uppercase font-bold tracking-tight">kcal</span>
+                                    <span id="calFraction" class="text-sm font-bold leading-tight">0/2000</span>
+                                    <span class="text-[10px] opacity-50 uppercase font-bold tracking-tight">kcal</span>
                                 </div>
                             </div>
                             <div class="flex-grow space-y-4">
@@ -72,28 +122,28 @@
                                         <span>PROTEIN</span>
                                         <span><span id="displayP">0</span>/<span id="targetP">100</span> g</span>
                                     </div>
-                                    <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden"><div id="barP" class="h-full bg-red-500 transition-all duration-700"></div></div>
+                                    <div class="w-full h-2 bg-black/5 rounded-full overflow-hidden"><div id="barP" class="h-full bg-red-500 transition-all duration-700"></div></div>
                                 </div>
                                 <div>
                                     <div class="flex justify-between text-[11px] font-bold text-blue-500 mb-1">
                                         <span>CARBS</span>
                                         <span><span id="displayC">0</span>/<span id="targetC">250</span> g</span>
                                     </div>
-                                    <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden"><div id="barC" class="h-full bg-blue-500 transition-all duration-700"></div></div>
+                                    <div class="w-full h-2 bg-black/5 rounded-full overflow-hidden"><div id="barC" class="h-full bg-blue-500 transition-all duration-700"></div></div>
                                 </div>
                                 <div>
                                     <div class="flex justify-between text-[11px] font-bold text-yellow-600 mb-1">
                                         <span>FAT</span>
                                         <span><span id="displayF">0</span>/<span id="targetF">66</span> g</span>
                                     </div>
-                                    <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden"><div id="barF" class="h-full bg-yellow-500 transition-all duration-700"></div></div>
+                                    <div class="w-full h-2 bg-black/5 rounded-full overflow-hidden"><div id="barF" class="h-full bg-yellow-500 transition-all duration-700"></div></div>
                                 </div>
                             </div>
                         </div>
-                        <div class="mt-4 pt-4 border-t border-orange-100 flex justify-center gap-4 text-xs text-gray-500">
-                            <span>Consumed: <b id="displayCals" class="text-orange-700">0</b> kcal</span>
-                            <span class="text-gray-300">|</span>
-                            <span>Target: <b id="targetCals" class="text-gray-800">2000</b> kcal</span>
+                        <div class="mt-4 pt-4 border-t border-black/5 flex justify-center gap-4 text-xs opacity-60">
+                            <span>Consumed: <b id="displayCals" class="text-orange-500">0</b> kcal</span>
+                            <span>|</span>
+                            <span>Target: <b id="targetCals">2000</b> kcal</span>
                         </div>
                     </div>
                 </div>
@@ -102,17 +152,16 @@
                 <div id="editModal" class="hidden absolute top-0 right-0 w-[420px] bg-white rounded-3xl shadow-2xl border border-gray-200 z-50 overflow-hidden transform origin-top-right transition-all">
                     <div class="bg-orange-50 p-4 border-b border-orange-100 flex justify-between items-center">
                         <h3 class="font-bold text-orange-800">Edit Intake</h3>
-                        <button onclick="toggleEditMode()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+                        <button onclick="toggleEditMode()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
                     </div>
                     
                     <div class="relative flex border-b text-sm font-medium">
                         <button onclick="switchTab('basic')" id="basicTabBtn" class="flex-1 py-3 text-orange-600 transition-colors duration-300">Basic</button>
                         <button onclick="switchTab('advanced')" id="advancedTabBtn" class="flex-1 py-3 text-gray-400 hover:text-gray-600 transition-colors duration-300">Advanced</button>
-                        <!-- Sliding Indicator -->
                         <div id="tabIndicator" class="absolute bottom-0 left-0 w-1/2 h-0.5 bg-orange-500 transition-all duration-300 ease-out"></div>
                     </div>
 
-                    <div class="p-6 max-h-[450px] overflow-y-auto custom-scroll">
+                    <div class="p-6 max-h-[450px] overflow-y-auto custom-scroll text-slate-700">
                         <div id="basicTabContent" class="space-y-5">
                             <div class="space-y-4">
                                 <div class="grid grid-cols-2 gap-4">
@@ -143,7 +192,7 @@
 
                             <div class="relative flex items-center py-4 -mx-6">
                                 <div class="flex-grow border-t border-gray-100"></div>
-                                <span class="flex-shrink mx-4 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] bg-white px-2">or</span>
+                                <span class="flex-shrink mx-4 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] bg-transparent px-2">or</span>
                                 <div class="flex-grow border-t border-gray-100"></div>
                             </div>
 
@@ -188,28 +237,28 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-[32px] shadow-sm border border-purple-100 p-6 flex flex-col flex-grow relative overflow-hidden">
+            <div class="glass-panel bg-ai rounded-[32px] shadow-sm p-6 flex flex-col flex-grow relative overflow-hidden">
                 <h2 class="text-purple-700 font-bold text-lg mb-4"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>AI Analysis</h2>
                 <div class="flex-grow flex flex-col relative">
-                    <textarea id="userInput" class="w-full h-full p-5 pb-24 text-gray-700 bg-purple-50/50 rounded-2xl border border-purple-100 focus:outline-none resize-none" placeholder="Describe your food..."></textarea>
-                    <div id="imagePreviewContainer" class="hidden absolute bottom-20 left-5 right-5 h-24 bg-white rounded-xl border p-2 items-center justify-between"><img id="previewImg" class="h-full rounded-lg object-cover"><button onclick="clearImage()" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button></div>
+                    <textarea id="userInput" class="w-full h-full p-5 pb-24 bg-transparent rounded-2xl border border-black/5 focus:outline-none focus:ring-1 focus:ring-purple-200 resize-none placeholder-gray-400" placeholder="Describe your food..."></textarea>
+                    <div id="imagePreviewContainer" class="hidden absolute bottom-20 left-5 right-5 h-24 glass-panel bg-white/50 rounded-xl border p-2 items-center justify-between"><img id="previewImg" class="h-full rounded-lg object-cover"><button onclick="clearImage()" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button></div>
                     <div class="absolute bottom-5 right-5 left-5 flex items-center justify-between">
-                        <input type="file" id="imageInput" accept="image/*" class="hidden"><button onclick="document.getElementById('imageInput').click()" class="bg-white border p-2 rounded-full shadow-sm text-purple-400 transition hover:bg-purple-50"><i class="fa-solid fa-camera text-xl"></i></button>
-                        <div class="flex items-center gap-3"><span id="statusMsg" class="text-xs text-purple-600 hidden">Analyzing...</span><button id="scanBtn" class="bg-purple-600 text-white px-6 py-2 rounded-full font-medium transition hover:bg-purple-700 active:scale-95">Analyze</button></div>
+                        <input type="file" id="imageInput" accept="image/*" class="hidden"><button onclick="document.getElementById('imageInput').click()" class="glass-panel border p-2 rounded-full text-purple-400 transition hover:bg-white/10"><i class="fa-solid fa-camera text-xl"></i></button>
+                        <div class="flex items-center gap-3"><span id="statusMsg" class="text-xs text-purple-600 hidden">Analyzing...</span><button id="scanBtn" class="bg-purple-600 text-white px-6 py-2 rounded-full font-medium transition hover:bg-purple-700 active:scale-95 shadow-md">Analyze</button></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="lg:col-span-4 h-full bg-white rounded-[32px] shadow-sm border border-gray-200 p-8 flex flex-col items-center justify-center text-gray-300">
-            <i class="fa-solid fa-layer-group text-6xl mb-4 opacity-20"></i>
-            <h3 class="text-xl font-bold">Right Column</h3><p class="text-sm">Future Widgets</p>
+        <div class="lg:col-span-4 h-full glass-panel rounded-[32px] shadow-sm p-8 flex flex-col items-center justify-center text-gray-400">
+            <i class="fa-solid fa-layer-group text-6xl mb-4 opacity-10"></i>
+            <h3 class="text-xl font-bold opacity-30 tracking-tight">Right Column</h3><p class="text-sm opacity-20">Future Widgets</p>
         </div>
     </div>
 
     <div id="modalOverlay" onclick="toggleEditMode()" class="hidden fixed inset-0 modal-overlay z-40 transition-opacity"></div>
 
-    <div id="graphModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50 backdrop-blur-sm"><div class="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl relative"><button onclick="toggleGraphModal()" class="absolute top-5 right-5 text-gray-300"><i class="fa-solid fa-xmark text-2xl"></i></button><h3 class="text-xl font-bold mb-6">Food Grade Calculator</h3><div class="relative h-64 w-full"><canvas id="fuzzyChart"></canvas></div></div></div>
+    <div id="graphModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50 backdrop-blur-sm"><div class="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl relative"><button onclick="toggleGraphModal()" class="absolute top-5 right-5 text-gray-300"><i class="fa-solid fa-xmark text-2xl"></i></button><h3 class="text-xl font-bold mb-6 text-slate-800">Food Grade Calculator</h3><div class="relative h-64 w-full"><canvas id="fuzzyChart"></canvas></div></div></div>
 
     <script src="app.js"></script>
 </body>

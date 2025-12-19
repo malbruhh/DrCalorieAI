@@ -14,9 +14,20 @@ let donutChartInstance = null; // Calorie Donut
 let lastScore = 50; 
 let lastDeleted = null;
 let currentImageBase64 = null; 
+let currentTheme = 'light';
+
+const MAX_HISTORY_LENGTH = 100; // Safety limit to prevent high RAM/Storage usage
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
+    // 1. Initialize Theme
+    const savedTheme = localStorage.getItem('nutriscan_theme') || 'light';
+    applyTheme(savedTheme);
+
+    // 2. Load Session Data from LocalStorage
+    loadSession();
+
+    // 3. Initialize UI Components
     initDonutChart(); 
     updateDashboard(); 
     setupSliderListeners();
@@ -32,6 +43,70 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('imageInput')?.addEventListener('change', handleImageSelect);
 });
+
+// --- Persistence Logic ---
+
+function saveSession() {
+    try {
+        const sessionData = {
+            targets,
+            history,
+            current // Saving current allows the bars to stay filled on reload
+        };
+        localStorage.setItem('nutriscan_session', JSON.stringify(sessionData));
+    } catch (e) {
+        console.error("Failed to save session to localStorage:", e);
+    }
+}
+
+function loadSession() {
+    const savedData = localStorage.getItem('nutriscan_session');
+    if (savedData) {
+        try {
+            const data = JSON.parse(savedData);
+            targets = data.targets || targets;
+            history = data.history || [];
+            current = data.current || { cals: 0, p: 0, c: 0, f: 0 };
+            
+            renderHistory();
+        } catch (e) {
+            console.error("Error parsing session data:", e);
+        }
+    }
+}
+
+// --- Theme Logic ---
+window.toggleTheme = function() {
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    applyTheme(newTheme);
+};
+
+function applyTheme(theme) {
+    currentTheme = theme;
+    localStorage.setItem('nutriscan_theme', theme);
+    const body = document.body;
+    const themeBtn = document.getElementById('themeToggleBtn');
+    const icon = themeBtn?.querySelector('i');
+
+    if (theme === 'dark') {
+        body.classList.add('theme-dark');
+        if (icon) {
+            icon.classList.remove('fa-sun');
+            icon.classList.add('fa-moon');
+        }
+    } else {
+        body.classList.remove('theme-dark');
+        if (icon) {
+            icon.classList.remove('fa-moon');
+            icon.classList.add('fa-sun');
+        }
+    }
+
+    if (donutChartInstance) {
+        donutChartInstance.options.plugins.legend.labels.color = theme === 'dark' ? '#94a3b8' : '#64748b';
+        donutChartInstance.update();
+    }
+}
 
 // --- Image Handling ---
 function handleImageSelect(event) {
@@ -85,6 +160,12 @@ async function analyzeFood() {
         
         items.forEach(item => {
             history.unshift(item);
+            
+            // Apply History Limit (Prevent RAM bloat)
+            if (history.length > MAX_HISTORY_LENGTH) {
+                history.pop(); 
+            }
+
             current.cals += item.calories || 0;
             current.p += item.protein || 0;
             current.c += item.carbs || 0;
@@ -94,6 +175,7 @@ async function analyzeFood() {
             lastScore = fuzzyRes.score;
         });
 
+        saveSession(); // Persist changes
         renderHistory();
         updateDashboard();
         updateChart(); 
@@ -122,13 +204,13 @@ function renderHistory() {
     history.forEach((item, index) => {
         const fuzzy = calculateFuzzyHealth(item.calories, item.protein, item.fats, item.carbs);
         const li = document.createElement('li');
-        li.className = "bg-white p-4 rounded-2xl border border-green-100 shadow-sm fade-in group relative hover:shadow-md transition-all";
+        li.className = "item-card p-4 rounded-2xl shadow-sm fade-in group relative hover:shadow-md transition-all";
         li.innerHTML = `
             <div class="flex justify-between items-start mb-3">
                 <div>
                     <div class="flex items-center gap-2 flex-wrap">
                         <i class="fa-solid fa-plus text-green-500 text-xs"></i>
-                        <span class="font-bold text-gray-800 capitalize text-base">${item.food_name}</span>
+                        <span class="font-bold capitalize text-base">${item.food_name}</span>
                         <span class="badge-cal px-2 py-0.5 rounded text-[11px] font-mono font-bold ml-1">${item.calories} kcal</span>
                     </div>
                     <span class="text-[10px] uppercase font-bold tracking-wider ml-5 mt-1 block w-fit text-${fuzzy.colorName}-600 bg-${fuzzy.colorName}-100 px-2 py-0.5 rounded-md">${fuzzy.category}</span>
@@ -154,6 +236,8 @@ window.deleteItem = function(index) {
     current.c -= item.carbs;
     current.f -= item.fats;
     history.splice(index, 1);
+    
+    saveSession(); // Persist deletion
     renderHistory();
     updateDashboard();
 };
@@ -206,6 +290,7 @@ function updateDashboard() {
 
     if (donutChartInstance) {
         donutChartInstance.data.datasets[0].data = [pCals, cCals, fCals, remaining];
+        donutChartInstance.data.datasets[0].backgroundColor[3] = currentTheme === 'dark' ? 'rgba(255,255,255,0.05)' : '#F3F4F6';
         donutChartInstance.update();
     }
 
@@ -249,7 +334,7 @@ window.switchTab = function(tab) {
         indicator.style.transform = 'translateX(0%)';
         
         basicContent.classList.remove('fade-in');
-        void basicContent.offsetWidth; // Trigger reflow
+        void basicContent.offsetWidth; 
         basicContent.classList.add('fade-in');
     } else {
         advancedContent.classList.remove('hidden');
@@ -262,7 +347,7 @@ window.switchTab = function(tab) {
         
         updateAdvancedSlidersFromGrams();
         advancedContent.classList.remove('fade-in');
-        void advancedContent.offsetWidth; // Trigger reflow
+        void advancedContent.offsetWidth; 
         advancedContent.classList.add('fade-in');
     }
 };
@@ -377,6 +462,7 @@ window.saveIntake = function() {
     targets.c = Math.round((total * cPct / 100) / 4);
     targets.f = Math.round((total * fPct / 100) / 9);
 
+    saveSession(); // Persist changes
     window.toggleEditMode();
     updateDashboard();
 };
