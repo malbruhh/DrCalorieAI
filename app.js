@@ -9,8 +9,8 @@ let targets = {
 }; 
 let current = { cals: 0, p: 0, c: 0, f: 0 };
 let history = [];
-let chartInstance = null; // Fuzzy Graph
-let donutChartInstance = null; // Calorie Donut
+let chartInstance = null; // Fuzzy Graph (Modal)
+let donutChartInstance = null; // Calorie Donut (Main View)
 let lastScore = 50; 
 let lastDeleted = null;
 let currentImageBase64 = null; 
@@ -20,14 +20,10 @@ const MAX_HISTORY_LENGTH = 100;
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize Theme from storage
     const savedTheme = localStorage.getItem('nutriscan_theme') || 'light';
     applyTheme(savedTheme);
 
-    // 2. Load Session Data
     loadSession();
-
-    // 3. Initialize UI
     initDonutChart(); 
     updateDashboard(); 
     setupSliderListeners();
@@ -70,11 +66,10 @@ function applyTheme(theme) {
         }
     }
 
-    // Immediately update charts to reflect new theme colors
-    updateDashboard();
+    updateDashboard(); // Redraw chart with new theme colors
 }
 
-// --- Persistence Logic ---
+// --- Persistence ---
 function saveSession() {
     try {
         const sessionData = { targets, history, current };
@@ -136,13 +131,12 @@ async function analyzeFood() {
         saveSession();
         renderHistory();
         updateDashboard();
-        updateChart(); 
+        updateChart(); // This was the missing function causing the error
         clearImage();
         document.getElementById('userInput').value = ''; 
 
     } catch (error) {
-        console.error(error);
-        alert("Error: " + error.message);
+        console.error("Analysis Error:", error);
     } finally {
         btn.disabled = false;
         btn.innerHTML = `Analyze`;
@@ -249,7 +243,7 @@ function updateDashboard() {
     document.getElementById('barF').style.width = calcPct(current.f, targets.f);
 }
 
-// --- MODAL & EDITOR LOGIC ---
+// --- MODAL & EDITOR ---
 window.toggleEditMode = function() {
     const modal = document.getElementById('editModal');
     const overlay = document.getElementById('modalOverlay');
@@ -405,26 +399,6 @@ function calculateFuzzyHealth(calories=0, protein=0, fats=0, carbs=0) {
     return { score, category: "Junk Food", colorName: "red" };
 }
 
-function handleImageSelect(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        currentImageBase64 = e.target.result;
-        const container = document.getElementById('imagePreviewContainer');
-        document.getElementById('previewImg').src = currentImageBase64;
-        container.classList.remove('hidden');
-        container.classList.add('flex');
-    };
-    reader.readAsDataURL(file);
-}
-
-window.clearImage = function() {
-    currentImageBase64 = null;
-    document.getElementById('imageInput').value = ""; 
-    document.getElementById('imagePreviewContainer').classList.add('hidden');
-};
-
 window.toggleGraphModal = function() {
     const modal = document.getElementById('graphModal');
     if (modal.classList.contains('hidden')) {
@@ -453,6 +427,7 @@ function initChart() {
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false, max: 1.1 }, x: { title: { display: true, text: 'Health Score (0-100)' } } }, plugins: { legend: { display: false } } }
     });
 }
+
 function updateChart() { 
     if (chartInstance) chartInstance.update(); 
 }
