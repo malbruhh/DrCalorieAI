@@ -7,7 +7,6 @@ let targets = {
     c: 250, 
     f: 66 
 }; 
-// Added 's' for sugar tracking in state
 let current = { cals: 0, p: 0, c: 0, f: 0, s: 0 };
 let history = [];
 let chartInstance = null; 
@@ -37,6 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     document.getElementById('imageInput')?.addEventListener('change', handleImageSelect);
+    
+    // ✅ FIX: Prevent modal close when clicking inside modal content
+    document.getElementById('editModal')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
 });
 
 // --- Theme Logic ---
@@ -47,7 +51,12 @@ window.toggleTheme = function() {
 
 function applyTheme(theme) {
     currentTheme = theme;
-    localStorage.setItem('nutriscan_theme', theme);
+    try {
+        localStorage.setItem('nutriscan_theme', theme);
+    } catch (e) {
+        console.warn('Theme preference could not be saved:', e);
+    }
+    
     const body = document.body;
     const themeIcon = document.getElementById('themeIcon');
 
@@ -72,7 +81,10 @@ function saveSession() {
     try {
         const sessionData = { targets, history, current };
         localStorage.setItem('nutriscan_session', JSON.stringify(sessionData));
-    } catch (e) { console.error("Save error:", e); }
+    } catch (e) { 
+        console.error("Save error:", e);
+        // Could show user notification here
+    }
 }
 
 function loadSession() {
@@ -82,10 +94,21 @@ function loadSession() {
             const data = JSON.parse(savedData);
             targets = data.targets || targets;
             history = data.history || [];
-            // Ensure sugar exists in loaded state
+            
+            // ✅ FIX: Enforce MAX_HISTORY_LENGTH on load
+            if (history.length > MAX_HISTORY_LENGTH) {
+                history = history.slice(0, MAX_HISTORY_LENGTH);
+                console.warn(`History truncated to ${MAX_HISTORY_LENGTH} items`);
+            }
+            
             current = data.current || { cals: 0, p: 0, c: 0, f: 0, s: 0 };
             renderHistory();
-        } catch (e) { console.error("Load error:", e); }
+        } catch (e) { 
+            console.error("Load error:", e);
+            // Reset to defaults on corrupt data
+            history = [];
+            current = { cals: 0, p: 0, c: 0, f: 0, s: 0 };
+        }
     }
 }
 
@@ -95,7 +118,10 @@ async function analyzeFood() {
     const btn = document.getElementById('scanBtn');
     const status = document.getElementById('statusMsg');
 
-    if (!input.trim() && !currentImageBase64) return;
+    if (!input.trim() && !currentImageBase64) {
+        alert('Please enter a food description or upload an image.');
+        return;
+    }
 
     btn.disabled = true;
     btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i>`;
@@ -109,22 +135,57 @@ async function analyzeFood() {
             body: JSON.stringify(payload) 
         });
 
-        if (!response.ok) throw new Error("Server Error");
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Server Error' }));
+            
+            // ✅ FIX: Better error messages
+            if (response.status === 429) {
+                throw new Error("Rate limit exceeded. Please wait a moment and try again.");
+            } else if (response.status === 401) {
+                throw new Error("API authentication failed. Check your API key.");
+            } else if (response.status === 500) {
+                throw new Error(errorData.detail || "Server error occurred");
+            } else {
+                throw new Error(errorData.detail || `Server returned ${response.status}`);
+            }
+        }
 
         const data = await response.json();
         const items = Array.isArray(data) ? data : [data];
         
+        if (items.length === 0) {
+            throw new Error("No food items were recognized. Please try again.");
+        }
+        
         items.forEach(item => {
+            // ✅ FIX: Validate item structure
+            if (!item || typeof item !== 'object') {
+                console.warn('Skipping invalid item:', item);
+                return;
+            }
+            
             history.unshift(item);
             if (history.length > MAX_HISTORY_LENGTH) history.pop(); 
 
-            current.cals += item.calories || 0;
-            current.p += item.protein || 0;
-            current.c += item.carbs || 0;
-            current.f += item.fats || 0;
-            current.s += item.sugar || 0; // Hidden tracking
+            // ✅ FIX: Force numeric conversion to prevent string concatenation
+            current.cals += Number(item.calories) || 0;
+            current.p += Number(item.protein) || 0;
+            current.c += Number(item.carbs) || 0;
+            current.f += Number(item.fats) || 0;
+            current.s += Number(item.sugar) || 0;
             
-            const fuzzyRes = calculateFuzzyHealth(item.calories, item.protein, item.fats, item.sugar || 0);
+            const fuzzyRes = calculateFuzzyHealth(
+                Number(item.calories) || 0,
+                Number(item.protein) || 0,
+                Number(item.fats) || 0,
+                Number(item.sugar) || 0
+            );
+            
+            if (!fuzzyRes || !fuzzyRes.mf) {
+                console.warn('Fuzzy calculation failed for item:', item);
+                return;
+            }
+            
             drawFuzzyGraph("calGraph", fuzzyRes.mf.cal, getDominant(fuzzyRes.mf.cal));
             drawFuzzyGraph("proGraph", fuzzyRes.mf.pro, getDominant(fuzzyRes.mf.pro));
             drawFuzzyGraph("fatGraph", fuzzyRes.mf.fat, getDominant(fuzzyRes.mf.fat));
@@ -132,10 +193,8 @@ async function analyzeFood() {
 
             updateSugenoUI(fuzzyRes.rules, fuzzyRes.score);
             lastScore = fuzzyRes.score;
-            if (!fuzzyRes?.mf) return;
         });
         
-
         saveSession();
         renderHistory();
         updateDashboard();
@@ -145,7 +204,7 @@ async function analyzeFood() {
         document.getElementById('userInput').value = ''; 
 
     } catch (error) {
-        console.error(error);
+        console.error('Analysis error:', error);
         alert("Error: " + error.message);
     } finally {
         btn.disabled = false;
@@ -156,16 +215,54 @@ async function analyzeFood() {
 
 // --- Sugeno Fuzzy Logic Implementation ---
 function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
+    // ✅ FIX: Force numeric conversion and validate inputs
+    calories = Number(calories) || 0;
+    protein = Number(protein) || 0;
+    fats = Number(fats) || 0;
+    sugar = Number(sugar) || 0;
+    
+    // Validate inputs are reasonable numbers
+    if (isNaN(calories) || isNaN(protein) || isNaN(fats) || isNaN(sugar)) {
+        console.error('Invalid numeric inputs:', { calories, protein, fats, sugar });
+        return {
+            score: 50,
+            category: "Unknown",
+            colorName: "gray",
+            mf: {
+                cal: { low: 0, med: 0, high: 0 },
+                pro: { low: 0, med: 0, high: 0 },
+                fat: { low: 0, high: 0 },
+                sug: { low: 0, med: 0, high: 0 }
+            },
+            rules: []
+        };
+    }
+    
     // 1. FUZZIFICATION
     const trapLow = (x, peak, high) => (x <= peak ? 1 : x >= high ? 0 : (high - x) / (high - peak));
     const tri = (x, low, peak, high) => (x <= low || x >= high) ? 0 : (x < peak ? (x - low) / (peak - low) : (high - x) / (high - peak));
     const trapHigh = (x, low, peak) => (x >= peak ? 1 : x <= low ? 0 : (x - low) / (peak - low));
 
     const mf = {
-        cal: { low: trapLow(calories, 100, 300), med: tri(calories, 200, 500, 800), high: trapHigh(calories, 700, 950) },
-        pro: { low: trapLow(protein, 5, 12), med: tri(protein, 10, 25, 40), high: trapHigh(protein, 30, 50) },
-        fat: { low: trapLow(fats, 5, 16), high: trapHigh(fats, 15, 35) },
-        sug: { low: trapLow(sugar, 5, 10), med: tri(sugar, 8, 18, 28), high: trapHigh(sugar, 22, 35) }
+        cal: { 
+            low: trapLow(calories, 100, 300), 
+            med: tri(calories, 200, 500, 800), 
+            high: trapHigh(calories, 700, 950) 
+        },
+        pro: { 
+            low: trapLow(protein, 5, 12), 
+            med: tri(protein, 10, 25, 40), 
+            high: trapHigh(protein, 30, 50) 
+        },
+        fat: { 
+            low: trapLow(fats, 5, 16), 
+            high: trapHigh(fats, 15, 35) 
+        },
+        sug: { 
+            low: trapLow(sugar, 5, 10), 
+            med: tri(sugar, 8, 18, 28), 
+            high: trapHigh(sugar, 22, 35) 
+        }
     };
 
     // 2. RULE EVALUATION (Sugeno Singletons)
@@ -173,7 +270,7 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
     let rules = [];
 
     // RULES: Junk Food (Z=10)
-    rules.push([mf.sug.high, Z_JUNK]); // Strong penalization for high sugar
+    rules.push([mf.sug.high, Z_JUNK]);
     rules.push([Math.min(mf.cal.high, mf.sug.med), Z_JUNK]);
     rules.push([Math.min(mf.fat.high, mf.pro.low), Z_JUNK]);
 
@@ -200,33 +297,34 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
 
     // Default to middle-ground if no rules fire
     const score = sumWeight === 0 ? 50 : (sumWeightedValue / sumWeight);
+    
+    // ✅ FIX: Validate final score
+    const finalScore = isNaN(score) ? 50 : Math.max(0, Math.min(100, score));
 
     // 4. OUTPUT CATEGORIZATION
-    // 4. OUTPUT CATEGORIZATION
-let category, colorName;
+    let category, colorName;
 
-if (score >= 85) {
-    category = "Very Healthy";
-    colorName = "emerald";
-} else if (score >= 60) {
-    category = "Healthy";
-    colorName = "green";
-} else if (score >= 35) {
-    category = "Not Healthy";
-    colorName = "orange";
-} else {
-    category = "Junk Food";
-    colorName = "red";
-}
+    if (finalScore >= 85) {
+        category = "Very Healthy";
+        colorName = "emerald";
+    } else if (finalScore >= 60) {
+        category = "Healthy";
+        colorName = "green";
+    } else if (finalScore >= 35) {
+        category = "Not Healthy";
+        colorName = "orange";
+    } else {
+        category = "Junk Food";
+        colorName = "red";
+    }
 
-//  RETURN EVERYTHING THE UI NEEDS
-return {
-    score,
-    category,
-    colorName,
-    mf,        // <-- REQUIRED for graphs
-    rules      // <-- REQUIRED for Sugeno transparency
-};
+    return {
+        score: finalScore,
+        category,
+        colorName,
+        mf,
+        rules
+    };
 }
 
 const fuzzyCharts = {};
@@ -235,11 +333,15 @@ function getDominant(mf) {
     return Object.entries(mf).reduce((a,b)=> a[1] > b[1] ? a : b)[0];
 }
 
-//Fuzzy Graph 
+// Fuzzy Graph 
 function drawFuzzyGraph(id, mf, dominant) {
     if (fuzzyCharts[id]) fuzzyCharts[id].destroy();
 
-    const ctx = document.getElementById(id).getContext("2d");
+    const ctx = document.getElementById(id)?.getContext("2d");
+    if (!ctx) {
+        console.warn(`Canvas ${id} not found`);
+        return;
+    }
 
     fuzzyCharts[id] = new Chart(ctx, {
         type: "bar",
@@ -260,6 +362,7 @@ function drawFuzzyGraph(id, mf, dominant) {
         }
     });
 }
+
 function updateSugenoUI(rules, score) {
     let num = 0, den = 0;
     rules.forEach(([w,z]) => {
@@ -267,16 +370,21 @@ function updateSugenoUI(rules, score) {
         den += w;
     });
 
-    document.getElementById("sugenoCalc").innerHTML = `
-        <strong>Sugeno Weighted Average</strong><br>
-        Σ(w × z) = ${num.toFixed(2)}<br>
-        Σ(w) = ${den.toFixed(2)}<br>
-        <strong>Result = ${score.toFixed(1)}</strong>
-    `;
+    const sugenoElem = document.getElementById("sugenoCalc");
+    if (sugenoElem) {
+        sugenoElem.innerHTML = `
+            <strong>Sugeno Weighted Average</strong><br>
+            Σ(w × z) = ${num.toFixed(2)}<br>
+            Σ(w) = ${den.toFixed(2)}<br>
+            <strong>Result = ${score.toFixed(1)}</strong>
+        `;
+    }
 
     if (outputChart) outputChart.destroy();
 
-    const ctx = document.getElementById("outputGraph").getContext("2d");
+    const ctx = document.getElementById("outputGraph")?.getContext("2d");
+    if (!ctx) return;
+    
     outputChart = new Chart(ctx, {
         type: "bar",
         data: {
@@ -301,8 +409,13 @@ function renderHistory() {
     document.getElementById('itemCount').innerText = `${history.length} items`;
 
     history.forEach((item, index) => {
-        // Pass sugar into the fuzzy calculator (hidden from display)
-        const fuzzy = calculateFuzzyHealth(item.calories, item.protein, item.fats, item.sugar || 0);
+        const fuzzy = calculateFuzzyHealth(
+            Number(item.calories) || 0, 
+            Number(item.protein) || 0, 
+            Number(item.fats) || 0, 
+            Number(item.sugar) || 0
+        );
+        
         const li = document.createElement('li');
         li.className = "item-card food-item p-4 rounded-2xl shadow-sm fade-in group relative hover:shadow-md transition-all";
         li.innerHTML = `
@@ -334,11 +447,11 @@ window.deleteItem = function(index) {
     const item = history[index];
     lastDeletedItem = { item, index };
 
-    current.cals -= item.calories;
-    current.p -= item.protein;
-    current.c -= item.carbs;
-    current.f -= item.fats;
-    current.s -= (item.sugar || 0);
+    current.cals -= Number(item.calories) || 0;
+    current.p -= Number(item.protein) || 0;
+    current.c -= Number(item.carbs) || 0;
+    current.f -= Number(item.fats) || 0;
+    current.s -= Number(item.sugar) || 0;
 
     history.splice(index, 1);
     saveSession();
@@ -359,6 +472,14 @@ document.getElementById("undoBtn").onclick = () => {
     if (!lastDeletedItem) return;
 
     history.splice(lastDeletedItem.index, 0, lastDeletedItem.item);
+    
+    // Restore to current totals
+    current.cals += Number(lastDeletedItem.item.calories) || 0;
+    current.p += Number(lastDeletedItem.item.protein) || 0;
+    current.c += Number(lastDeletedItem.item.carbs) || 0;
+    current.f += Number(lastDeletedItem.item.fats) || 0;
+    current.s += Number(lastDeletedItem.item.sugar) || 0;
+    
     lastDeletedItem = null;
 
     saveSession();
@@ -367,29 +488,41 @@ document.getElementById("undoBtn").onclick = () => {
     document.getElementById("undoBtn").classList.add("hidden");
 };
 
-
 function initDonutChart() {
     const canvas = document.getElementById('calorieDonut');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    donutChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Protein', 'Carbs', 'Fat', 'Remaining'],
-            datasets: [{
-                data: [0, 0, 0, targets.cals],
-                backgroundColor: ['#EF4444', '#3B82F6', '#EAB308', '#94a3b8'],
-                borderWidth: 0,
-                hoverOffset: 4,
-                cutout: '75%'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { enabled: true } }
+    if (!canvas) {
+        console.warn('Donut chart canvas not found');
+        return;
+    }
+    
+    try {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.error('Could not get 2D context for donut chart');
+            return;
         }
-    });
+        
+        donutChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Protein', 'Carbs', 'Fat', 'Remaining'],
+                datasets: [{
+                    data: [0, 0, 0, targets.cals],
+                    backgroundColor: ['#EF4444', '#3B82F6', '#EAB308', '#94a3b8'],
+                    borderWidth: 0,
+                    hoverOffset: 4,
+                    cutout: '75%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: true } }
+            }
+        });
+    } catch (error) {
+        console.error('Error initializing donut chart:', error);
+    }
 }
 
 function updateDashboard() {
@@ -410,7 +543,6 @@ function updateDashboard() {
     document.getElementById('calFraction').innerText = `${consumed}/${targets.cals}`;
 
     if (donutChartInstance) {
-        // Sugar is intentionally excluded from the chart data
         donutChartInstance.data.datasets[0].data = [pCals, cCals, fCals, remaining];
         donutChartInstance.data.datasets[0].backgroundColor[3] = (currentTheme === 'dark') ? 'rgba(255, 255, 255, 0.2)' : '#94a3b8';
         donutChartInstance.update();
@@ -559,6 +691,22 @@ window.saveIntake = function() {
 function handleImageSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
+    
+    // ✅ FIX: Validate file type and size
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+        alert('Please upload a valid image file (JPEG, PNG, WebP, or GIF)');
+        event.target.value = '';
+        return;
+    }
+    
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        alert('Image size must be less than 10MB');
+        event.target.value = '';
+        return;
+    }
+    
     const reader = new FileReader();
     reader.onload = (e) => {
         currentImageBase64 = e.target.result;
@@ -566,6 +714,10 @@ function handleImageSelect(event) {
         document.getElementById('previewImg').src = currentImageBase64;
         container.classList.remove('hidden');
         container.classList.add('flex');
+    };
+    reader.onerror = () => {
+        alert('Failed to read image file');
+        event.target.value = '';
     };
     reader.readAsDataURL(file);
 }
@@ -592,24 +744,20 @@ let selectedFoodIndex = null;
 function selectFoodItem(index) {
     selectedFoodIndex = index;
 
-    // 1. Highlight selected item
     document.querySelectorAll(".food-item").forEach((el, i) => {
         el.classList.toggle("active", i === index);
     });
 
-    // 2. Get food data
     const item = history[index];
     if (!item) return;
 
-    // 3. Recalculate fuzzy logic
     const fuzzyRes = calculateFuzzyHealth(
-        item.calories,
-        item.protein,
-        item.fats,
-        item.sugar || 0
+        Number(item.calories) || 0,
+        Number(item.protein) || 0,
+        Number(item.fats) || 0,
+        Number(item.sugar) || 0
     );
 
-    // 4. Update graphs
     drawFuzzyGraph("calGraph", fuzzyRes.mf.cal, getDominant(fuzzyRes.mf.cal));
     drawFuzzyGraph("proGraph", fuzzyRes.mf.pro, getDominant(fuzzyRes.mf.pro));
     drawFuzzyGraph("fatGraph", fuzzyRes.mf.fat, getDominant(fuzzyRes.mf.fat));
@@ -617,7 +765,6 @@ function selectFoodItem(index) {
 
     updateSugenoUI(fuzzyRes.rules, fuzzyRes.score);
 
-    // 5. Animate graphs
     animateGraphs();
 }
 
@@ -627,29 +774,52 @@ function animateGraphs() {
         if (!el) return;
 
         el.classList.remove("graph-animate");
-        void el.offsetWidth; // force reflow
+        void el.offsetWidth;
         el.classList.add("graph-animate");
     });
 }
 
-
 function initChart() {
-    const ctx = document.getElementById('fuzzyChart').getContext('2d');
-    const labels = Array.from({length: 101}, (_, i) => i);
-    chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [
-                { label: 'Junk', data: labels.map(x => x <= 15 ? 1 : x >= 35 ? 0 : (35 - x) / 20), borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, pointRadius: 0 },
-                { label: 'Not Healthy', data: labels.map(x => x <= 15 || x >= 55 ? 0 : x <= 35 ? (x - 15) / 20 : (55 - x) / 20), borderColor: '#F97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', fill: true, pointRadius: 0 },
-                { label: 'Healthy', data: labels.map(x => x <= 35 || x >= 85 ? 0 : x <= 60 ? (x - 35) / 25 : (85 - x) / 25), borderColor: '#22C55E', backgroundColor: 'rgba(34, 197, 94, 0.1)', fill: true, pointRadius: 0 },
-                { label: 'Very Healthy', data: labels.map(x => x <= 60 ? 0 : x >= 85 ? 1 : (x - 60) / 25), borderColor: '#15803D', backgroundColor: 'rgba(21, 128, 61, 0.1)', fill: true, pointRadius: 0 }
-            ]
-        },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false, max: 1.1 }, x: { title: { display: true, text: 'Health Score (0-100)' } } }, plugins: { legend: { display: false } } }
-    });
+    const canvas = document.getElementById('fuzzyChart');
+    if (!canvas) {
+        console.warn('Fuzzy chart canvas not found');
+        return;
+    }
+    
+    try {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.error('Could not get 2D context for fuzzy chart');
+            return;
+        }
+        
+        const labels = Array.from({length: 101}, (_, i) => i);
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Junk', data: labels.map(x => x <= 15 ? 1 : x >= 35 ? 0 : (35 - x) / 20), borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, pointRadius: 0 },
+                    { label: 'Not Healthy', data: labels.map(x => x <= 15 || x >= 55 ? 0 : x <= 35 ? (x - 15) / 20 : (55 - x) / 20), borderColor: '#F97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', fill: true, pointRadius: 0 },
+                    { label: 'Healthy', data: labels.map(x => x <= 35 || x >= 85 ? 0 : x <= 60 ? (x - 35) / 25 : (85 - x) / 25), borderColor: '#22C55E', backgroundColor: 'rgba(34, 197, 94, 0.1)', fill: true, pointRadius: 0 },
+                    { label: 'Very Healthy', data: labels.map(x => x <= 60 ? 0 : x >= 85 ? 1 : (x - 60) / 25), borderColor: '#15803D', backgroundColor: 'rgba(21, 128, 61, 0.1)', fill: true, pointRadius: 0 }
+                ]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                scales: { 
+                    y: { display: false, max: 1.1 }, 
+                    x: { title: { display: true, text: 'Health Score (0-100)' } } 
+                }, 
+                plugins: { legend: { display: false } } 
+            }
+        });
+    } catch (error) {
+        console.error('Error initializing fuzzy chart:', error);
+    }
 }
+
 function updateChart() { 
     if (chartInstance) chartInstance.update(); 
 }
