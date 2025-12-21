@@ -10,7 +10,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        /* Modern Cross-Fade Background Animation */
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: #F8FAFC; 
@@ -28,7 +27,6 @@
             z-index: -1;
             opacity: 0;
             transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        
         }
 
         body.theme-dark { color: #f8fafc; }
@@ -41,7 +39,6 @@
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Light Mode Panels */
         .glass-panel { 
             transition: background 0.5s ease, border 0.5s ease, backdrop-filter 0.5s ease;
             border-radius: 32px;
@@ -51,13 +48,11 @@
         .bg-ai { background-color: #FFFFFF; border: 1px solid #f1f5f9; }
         .item-card { background-color: #FFFFFF; border: 1px solid #f1f5f9; }
 
-        /* Theme-Aware Placeholder Bars */
         .bar-placeholder { 
-            background-color: #94a3b8; /* Professional Slate Grey for Light Mode */
+            background-color: #94a3b8;
             transition: background 0.5s ease; 
         }
 
-        /* Dark Mode Override Styles */
         body.theme-dark .glass-panel {
             background: rgba(255, 255, 255, 0.03);
             backdrop-filter: blur(12px);
@@ -67,11 +62,10 @@
         body.theme-dark .bg-tracker { border-color: rgba(249, 115, 22, 0.4); } 
         body.theme-dark .bg-history { border-color: rgba(34, 197, 94, 0.4); }
         body.theme-dark .bg-ai { 
-            background: rgba(126, 34, 206, 0.08); /* Sophisticated Nebula Purple */
-            border-color: rgba(147, 197, 253, 0.3); /* Cyan/Indigo pop border */
+            background: rgba(126, 34, 206, 0.08);
+            border-color: rgba(147, 197, 253, 0.3);
         }
         
-        /* Unified Brighter Placeholders for Dark Mode */
         body.theme-dark .bar-placeholder { background-color: rgba(255, 255, 255, 0.2); }
         
         body.theme-dark .item-card { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); }
@@ -84,7 +78,6 @@
             border-color: rgba(255,255,255,0.1) !important;
         }
 
-        /* Modal Theming */
         #editModal { transition: background 0.5s ease, border 0.5s ease; }
         body.theme-dark #editModal { 
             background-color: rgba(15, 23, 42, 0.95); 
@@ -92,14 +85,13 @@
             border-color: rgba(255, 255, 255, 0.1);
             color: #f8fafc;
         }
-        body.theme-dark #editModal h3 { color: #fdba74 !important; } /* Brighter Title */
+        body.theme-dark #editModal h3 { color: #fdba74 !important; }
         body.theme-dark #editModal .modal-header,
         body.theme-dark #editModal .modal-footer {
             background-color: rgba(255, 255, 255, 0.03) !important;
             border-color: rgba(255, 255, 255, 0.1) !important;
         }
 
-        /* Modern Radio Toggle Switch */
         .theme-switch {
             width: 70px;
             height: 36px;
@@ -127,33 +119,37 @@
         }
         .theme-switch .knob i {
             font-size: 14px;
-            color: #f59e0b; /* Sun Color */
+            color: #f59e0b;
             transition: color 0.3s ease;
         }
         
         body.theme-dark .theme-switch { background: #1e293b; }
         body.theme-dark .theme-switch .knob { transform: translateX(34px); background: #334155; }
-        body.theme-dark .theme-switch .knob i { color: #cbd5e1; } /* Moon Color */
+        body.theme-dark .theme-switch .knob i { color: #cbd5e1; }
 
         input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 5px; background: #e2e8f0; outline: none; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ea580c; cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
         
-        #fuzzyPanel canvas {
-            width: 100%;
-            height: 130px;
+        /* ✅ NEW: Graph container styles */
+        .graph-container {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
-        #sugenoCalc {
-            line-height: 1.4;
+        body.theme-dark .graph-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
         }
 
-        .fade-soft {
-            opacity: 0.15 !important;
+        .graph-container canvas {
+            width: 100% !important;
+            height: 200px !important;
         }
 
-        .highlight {
-            opacity: 0.45 !important;
-        }
         .food-item {
             cursor: pointer;
             transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
@@ -164,7 +160,7 @@
         }
 
         .food-item.active {
-            background: rgba(99, 102, 241, 0.08); /* soft indigo */
+            background: rgba(99, 102, 241, 0.08);
             box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
         }
 
@@ -176,36 +172,47 @@
             from { opacity: 0.3; transform: scale(0.98); }
             to   { opacity: 1; transform: scale(1); }
         }
+
+        /* ✅ NEW: Responsive layout fix */
+        @media (max-width: 1024px) {
+            .lg\:grid-cols-12 {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
-<body class="h-screen flex flex-col p-4 lg:p-8 overflow-hidden relative">
+<body class="min-h-screen flex flex-col p-4 lg:p-8 overflow-auto">
 
-    <header class="mb-8 flex-shrink-0 flex justify-between items-start">
-        <!-- LOGO PLACEHOLDER -->
-        <div class="w-[250px] h-[150px] glass-panel bg-white/50 rounded-3xl flex items-center justify-center text-gray-400 font-medium shadow-sm">
+    <header class="mb-6 flex-shrink-0 flex justify-between items-start">
+        <!-- ✅ SMALLER LOGO -->
+        <div class="w-[180px] h-[100px] glass-panel bg-white/50 rounded-3xl flex items-center justify-center text-gray-400 font-medium shadow-sm">
             <div class="text-center">
-                <i class="fa-solid fa-image text-3xl mb-2 block opacity-20"></i>
-                <span class="opacity-50">LOGO (250x150)</span>
+                <i class="fa-solid fa-image text-2xl mb-1 block opacity-20"></i>
+                <span class="opacity-50 text-sm">LOGO (180x100)</span>
             </div>
         </div>
 
-        <!-- REFINED THEME TOGGLE -->
-        <div class="theme-switch" onclick="toggleTheme()">
-            <div class="knob">
-                <i id="themeIcon" class="fa-solid fa-sun"></i>
+        <!-- ✅ RESET & THEME BUTTONS -->
+        <div class="flex items-center gap-3">
+            <button onclick="resetApp()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-10 h-10 rounded-full flex items-center justify-center transition shadow-sm active:scale-90" title="Reset App">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+            <div class="theme-switch" onclick="toggleTheme()">
+                <div class="knob">
+                    <i id="themeIcon" class="fa-solid fa-sun"></i>
+                </div>
             </div>
         </div>
     </header>
 
-    <div class="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
+    <div class="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- COLUMN 1: HISTORY -->
-        <div class="lg:col-span-3 h-full glass-panel bg-history p-6 flex flex-col overflow-hidden shadow-sm">
+        <div class="lg:col-span-3 glass-panel bg-history p-6 flex flex-col overflow-hidden shadow-sm min-h-[400px] lg:min-h-[600px]">
             <div class="flex justify-between items-center mb-4 gap-2">
                 <h2 class="text-green-800 font-bold text-lg">History</h2>
                 <div class="flex items-center gap-2">
                     <button id="undoBtn" class="hidden text-xs bg-gray-800 text-white px-3 py-1 rounded-full hover:bg-gray-700 transition">Undo</button>
-                    <span id="itemCount"
-                    class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">0 items</span>
+                    <span id="itemCount" class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">0 items</span>
                 </div>
             </div>
             <div class="flex-grow overflow-y-auto custom-scroll pr-2">
@@ -214,7 +221,7 @@
         </div>
 
         <!-- COLUMN 2: TRACKER & AI -->
-        <div class="lg:col-span-5 h-full flex flex-col gap-6 min-h-0">
+        <div class="lg:col-span-5 flex flex-col gap-6">
             <div id="trackerCardContainer" class="relative">
                 <div class="glass-panel bg-tracker p-6 relative flex-shrink-0 shadow-sm">
                     <div class="absolute top-6 right-6 flex gap-3 z-10">
@@ -353,19 +360,17 @@
                 </div>
             </div>
 
-            <div class="glass-panel bg-ai p-6 flex flex-col flex-grow relative overflow-hidden shadow-sm">
+            <div class="glass-panel bg-ai p-6 flex flex-col relative overflow-hidden shadow-sm min-h-[350px]">
                 <h2 class="text-purple-700 font-bold text-lg mb-4"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>AI Analysis</h2>
                 <div class="flex-grow flex flex-col relative">
-                    <textarea id="userInput" class="w-full h-full p-5 pb-24 bg-transparent rounded-2xl border border-black/5 focus:outline-none focus:ring-1 focus:ring-purple-200 resize-none placeholder-gray-400" placeholder="Describe your food..."></textarea>
+                    <textarea id="userInput" class="w-full flex-grow p-5 pb-24 bg-transparent rounded-2xl border border-black/5 focus:outline-none focus:ring-1 focus:ring-purple-200 resize-none placeholder-gray-400" placeholder="Describe your food..."></textarea>
                     <div id="imagePreviewContainer" class="hidden absolute bottom-20 left-5 right-5 h-24 glass-panel bg-white/50 rounded-xl border p-2 items-center justify-between transition-all"><img id="previewImg" class="h-full rounded-lg object-cover"><button onclick="clearImage()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-xmark"></i></button></div>
                     <div class="absolute bottom-5 right-5 left-5 flex items-center justify-end gap-3">
                         <span id="statusMsg" class="text-xs text-purple-600 hidden">Analyzing...</span>
                         <input type="file" id="imageInput" accept="image/*" class="hidden">
-                        <!-- CIRCULAR CAMERA BUTTON -->
                         <button onclick="document.getElementById('imageInput').click()" class="w-11 h-11 flex items-center justify-center glass-panel border rounded-full text-purple-400 transition hover:bg-white/10 shadow-sm flex-shrink-0">
                             <i class="fa-solid fa-camera text-xl"></i>
                         </button>
-                        <!-- ANALYZE BUTTON WITH SPARKLES -->
                         <button id="scanBtn" class="bg-purple-600 text-white px-6 py-2 h-11 rounded-full font-medium transition hover:bg-purple-700 active:scale-95 shadow-md flex items-center gap-2">
                             Analyze <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
                         </button>
@@ -374,30 +379,47 @@
             </div>
         </div>
 
-        <div class="lg:col-span-4 h-full glass-panel bg-white rounded-[32px] shadow-sm border border-gray-200 p-6 overflow-y-auto max-h-100 overflow-y-auto 
-  [&::-webkit-scrollbar]:w-2
-  [&::-webkit-scrollbar-track]:rounded-full
-  [&::-webkit-scrollbar-track]:bg-gray-200
-  [&::-webkit-scrollbar-thumb]:rounded-full
-  [&::-webkit-scrollbar-thumb]:bg-gray-400
-  dark:[&::-webkit-scrollbar-track]:bg-neutral-600
-  dark:[&::-webkit-scrollbar-thumb]:bg-neutral-400">
-            <h3 class="font-bold text-slate-700 mb-4 text-sm uppercase tracking-wide ">
-                Fuzzy Logic Explainability</h3>
-            <div id="fuzzyPanel" class="flex flex-col gap-6">
-                <canvas id="calGraph"></canvas>
-                <canvas id="proGraph"></canvas>
-                <canvas id="fatGraph"></canvas>
-                <canvas id="sugGraph"></canvas>
-                <div id="sugenoCalc" class="text-xs bg-slate-100 rounded-xl p-3 font-mono text-slate-700">Sugeno calculation will appear here.</div>
-                <canvas id="outputGraph"></canvas>
+        <!-- ✅ COLUMN 3: GRAPHS WITH CONTAINERS -->
+        <div class="lg:col-span-4 glass-panel bg-white rounded-[32px] shadow-sm border border-gray-200 p-6 overflow-y-auto custom-scroll">
+            <h3 class="font-bold text-slate-700 mb-4 text-sm uppercase tracking-wide">Fuzzy Logic Explainability</h3>
+            
+            <div class="space-y-4">
+                <div class="graph-container">
+                    <canvas id="calGraph"></canvas>
+                </div>
+                
+                <div class="graph-container">
+                    <canvas id="proGraph"></canvas>
+                </div>
+                
+                <div class="graph-container">
+                    <canvas id="fatGraph"></canvas>
+                </div>
+                
+                <div class="graph-container">
+                    <canvas id="sugGraph"></canvas>
+                </div>
+                
+                <div id="sugenoCalc" class="text-xs bg-slate-100 rounded-xl p-3 font-mono text-slate-700">
+                    Sugeno calculation will appear here.
+                </div>
+                
+                <div class="graph-container">
+                    <canvas id="outputGraph"></canvas>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="modalOverlay" onclick="toggleEditMode()" class="hidden fixed inset-0 modal-overlay z-40 transition-opacity"></div>
+    <div id="modalOverlay" onclick="toggleEditMode()" class="hidden fixed inset-0 bg-black/30 z-40 transition-opacity"></div>
 
-    <div id="graphModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity"><div class="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl relative"><button onclick="toggleGraphModal()" class="absolute top-5 right-5 text-gray-300"><i class="fa-solid fa-xmark text-2xl"></i></button><h3 class="text-xl font-bold mb-6 text-slate-800">Food Grade Calculator</h3><div class="relative h-64 w-full"><canvas id="fuzzyChart"></canvas></div></div></div>
+    <div id="graphModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl relative">
+            <button onclick="toggleGraphModal()" class="absolute top-5 right-5 text-gray-300"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            <h3 class="text-xl font-bold mb-6 text-slate-800">Food Grade Calculator</h3>
+            <div class="relative h-64 w-full"><canvas id="fuzzyChart"></canvas></div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>

@@ -48,6 +48,19 @@ window.toggleTheme = function() {
     applyTheme(newTheme);
 };
 
+// ✅ NEW: Reset functionality
+window.resetApp = function() {
+    if (confirm('Are you sure you want to reset all data? This will clear your history and goals.')) {
+        localStorage.clear();
+        history = [];
+        current = { cals: 0, p: 0, c: 0, f: 0, s: 0 };
+        targets = { cals: 2000, p: 100, c: 250, f: 66 };
+        renderHistory();
+        updateDashboard();
+        alert('App reset successfully!');
+    }
+};
+
 function applyTheme(theme) {
     currentTheme = theme;
     try {
@@ -179,11 +192,10 @@ async function analyzeFood() {
                 return;
             }
             
-            // Draw with current values to show position
-            drawFuzzyGraph("calGraph", fuzzyRes.mf.cal, Number(item.calories) || 0);
-            drawFuzzyGraph("proGraph", fuzzyRes.mf.pro, Number(item.protein) || 0);
-            drawFuzzyGraph("fatGraph", fuzzyRes.mf.fat, Number(item.fats) || 0);
-            drawFuzzyGraph("sugGraph", fuzzyRes.mf.sug, Number(item.sugar) || 0);
+            drawFuzzyGraph("calGraph", 'calories', Number(item.calories) || 0);
+            drawFuzzyGraph("proGraph", 'protein', Number(item.protein) || 0);
+            drawFuzzyGraph("fatGraph", 'fats', Number(item.fats) || 0);
+            drawFuzzyGraph("sugGraph", 'sugar', Number(item.sugar) || 0);
 
             updateSugenoUI(fuzzyRes.rules, fuzzyRes.score);
             lastScore = fuzzyRes.score;
@@ -223,13 +235,14 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
             mf: {
                 cal: { low: 0, med: 0, high: 0 },
                 pro: { low: 0, med: 0, high: 0 },
-                fat: { low: 0, high: 0 },
+                fat: { low: 0, med: 0, high: 0 },
                 sug: { low: 0, med: 0, high: 0 }
             },
             rules: []
         };
     }
     
+    // Trapezoidal membership functions
     const trapLow = (x, peak, high) => (x <= peak ? 1 : x >= high ? 0 : (high - x) / (high - peak));
     const tri = (x, low, peak, high) => (x <= low || x >= high) ? 0 : (x < peak ? (x - low) / (peak - low) : (high - x) / (high - peak));
     const trapHigh = (x, low, peak) => (x >= peak ? 1 : x <= low ? 0 : (x - low) / (peak - low));
@@ -246,8 +259,9 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
             high: trapHigh(protein, 30, 50) 
         },
         fat: { 
-            low: trapLow(fats, 5, 16), 
-            high: trapHigh(fats, 15, 35) 
+            low: tri(fats, 0, 5, 16),
+            med: tri(fats, 10, 20, 30),
+            high: tri(fats, 25, 35, 50)
         },
         sug: { 
             low: trapLow(sugar, 5, 10), 
@@ -256,25 +270,36 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
         }
     };
 
+    // ✅ FIXED: Proper Sugeno model with consequent parameters
+    // Sugeno Rule Format: IF antecedent THEN z = consequent_value
     const Z_VERY_HEALTHY = 95, Z_HEALTHY = 75, Z_NOT_HEALTHY = 40, Z_JUNK = 10;
     let rules = [];
 
-    rules.push([mf.sug.high, Z_JUNK]);
-    rules.push([Math.min(mf.cal.high, mf.sug.med), Z_JUNK]);
-    rules.push([Math.min(mf.fat.high, mf.pro.low), Z_JUNK]);
-    rules.push([Math.min(mf.sug.med, mf.pro.low), Z_NOT_HEALTHY]);
-    rules.push([Math.min(mf.cal.high, mf.pro.med), Z_NOT_HEALTHY]);
-    rules.push([Math.min(mf.fat.high, mf.sug.low), Z_NOT_HEALTHY]);
-    rules.push([Math.min(mf.cal.low, mf.sug.low), Z_HEALTHY]);
-    rules.push([Math.min(mf.pro.med, mf.sug.low), Z_HEALTHY]);
-    rules.push([Math.min(mf.cal.med, mf.pro.med), Z_HEALTHY]);
-    rules.push([Math.min(mf.pro.high, mf.sug.low, mf.fat.low), Z_VERY_HEALTHY]);
-    rules.push([Math.min(mf.cal.low, mf.pro.high), Z_VERY_HEALTHY]);
+    // Junk Food Rules (z=10)
+    rules.push({ weight: mf.sug.high, consequent: Z_JUNK, desc: "High sugar" });
+    rules.push({ weight: Math.min(mf.cal.high, mf.sug.med), consequent: Z_JUNK, desc: "High cal + Med sugar" });
+    rules.push({ weight: Math.min(mf.fat.high, mf.pro.low), consequent: Z_JUNK, desc: "High fat + Low protein" });
 
+    // Not Healthy Rules (z=40)
+    rules.push({ weight: Math.min(mf.sug.med, mf.pro.low), consequent: Z_NOT_HEALTHY, desc: "Med sugar + Low protein" });
+    rules.push({ weight: Math.min(mf.cal.high, mf.pro.med), consequent: Z_NOT_HEALTHY, desc: "High cal + Med protein" });
+    rules.push({ weight: Math.min(mf.fat.high, mf.sug.low), consequent: Z_NOT_HEALTHY, desc: "High fat + Low sugar" });
+
+    // Healthy Rules (z=75)
+    rules.push({ weight: Math.min(mf.cal.low, mf.sug.low), consequent: Z_HEALTHY, desc: "Low cal + Low sugar" });
+    rules.push({ weight: Math.min(mf.pro.med, mf.sug.low), consequent: Z_HEALTHY, desc: "Med protein + Low sugar" });
+    rules.push({ weight: Math.min(mf.cal.med, mf.pro.med), consequent: Z_HEALTHY, desc: "Med cal + Med protein" });
+
+    // Very Healthy Rules (z=95)
+    rules.push({ weight: Math.min(mf.pro.high, mf.sug.low, mf.fat.low), consequent: Z_VERY_HEALTHY, desc: "High protein + Low sugar + Low fat" });
+    rules.push({ weight: Math.min(mf.cal.low, mf.pro.high), consequent: Z_VERY_HEALTHY, desc: "Low cal + High protein" });
+
+    // ✅ Sugeno Defuzzification: Weighted Average
+    // score = Σ(wi × zi) / Σ(wi)
     let sumWeight = 0, sumWeightedValue = 0;
-    rules.forEach(([w, z]) => {
-        sumWeightedValue += (w * z);
-        sumWeight += w;
+    rules.forEach(rule => {
+        sumWeightedValue += (rule.weight * rule.consequent);
+        sumWeight += rule.weight;
     });
 
     const score = sumWeight === 0 ? 50 : (sumWeightedValue / sumWeight);
@@ -307,9 +332,11 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
 
 const fuzzyCharts = {};
 
-// ✅ NEW: Draw true fuzzy membership function graphs
-function drawFuzzyGraph(canvasId, mf, currentValue) {
-    if (fuzzyCharts[canvasId]) fuzzyCharts[canvasId].destroy();
+// ✅ NEW: Draw proper fuzzy membership function graphs
+function drawFuzzyGraph(canvasId, type, currentValue) {
+    if (fuzzyCharts[canvasId]) {
+        fuzzyCharts[canvasId].destroy();
+    }
 
     const canvas = document.getElementById(canvasId);
     if (!canvas) {
@@ -318,175 +345,234 @@ function drawFuzzyGraph(canvasId, mf, currentValue) {
     }
     
     const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    // Define universe of discourse and membership functions based on graph type
-    let xRange, datasets, title;
+    let xMax, datasets, title, xLabel;
     
-    if (canvasId === 'calGraph') {
+    // Define membership functions based on type
+    if (type === 'calories') {
         title = 'Calorie Threshold';
-        xRange = Array.from({length: 1001}, (_, i) => i); // 0-1000 kcal
+        xLabel = 'Calories (kcal)';
+        xMax = 1000;
+        const xRange = Array.from({length: xMax + 1}, (_, i) => i);
+        
         datasets = [
             {
                 label: 'Low',
                 data: xRange.map(x => x <= 100 ? 1 : x >= 300 ? 0 : (300 - x) / 200),
                 borderColor: '#22c55e',
-                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                backgroundColor: 'rgba(34, 197, 94, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             },
             {
                 label: 'Medium',
                 data: xRange.map(x => {
                     if (x <= 200 || x >= 800) return 0;
-                    if (x < 500) return (x - 200) / 300;
+                    if (x <= 500) return (x - 200) / 300;
                     return (800 - x) / 300;
                 }),
                 borderColor: '#eab308',
-                backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                backgroundColor: 'rgba(234, 179, 8, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             },
             {
                 label: 'High',
                 data: xRange.map(x => x >= 950 ? 1 : x <= 700 ? 0 : (x - 700) / 250),
                 borderColor: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                backgroundColor: 'rgba(239, 68, 68, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             }
         ];
-    } else if (canvasId === 'proGraph') {
+    } else if (type === 'protein') {
         title = 'Protein Threshold';
-        xRange = Array.from({length: 61}, (_, i) => i); // 0-60g
+        xLabel = 'Protein (g)';
+        xMax = 60;
+        const xRange = Array.from({length: xMax + 1}, (_, i) => i);
+        
         datasets = [
             {
                 label: 'Low',
                 data: xRange.map(x => x <= 5 ? 1 : x >= 12 ? 0 : (12 - x) / 7),
                 borderColor: '#22c55e',
-                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                backgroundColor: 'rgba(34, 197, 94, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             },
             {
                 label: 'Medium',
                 data: xRange.map(x => {
                     if (x <= 10 || x >= 40) return 0;
-                    if (x < 25) return (x - 10) / 15;
+                    if (x <= 25) return (x - 10) / 15;
                     return (40 - x) / 15;
                 }),
                 borderColor: '#eab308',
-                backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                backgroundColor: 'rgba(234, 179, 8, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             },
             {
                 label: 'High',
                 data: xRange.map(x => x >= 50 ? 1 : x <= 30 ? 0 : (x - 30) / 20),
                 borderColor: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                backgroundColor: 'rgba(239, 68, 68, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             }
         ];
-    } else if (canvasId === 'fatGraph') {
+    } else if (type === 'fats') {
         title = 'Fat Threshold';
-        xRange = Array.from({length: 51}, (_, i) => i); // 0-50g
+        xLabel = 'Fat (g)';
+        xMax = 50;
+        const xRange = Array.from({length: xMax + 1}, (_, i) => i);
+        
         datasets = [
             {
                 label: 'Low',
-                data: xRange.map(x => x <= 5 ? 1 : x >= 16 ? 0 : (16 - x) / 11),
+                data: xRange.map(x => {
+                    if (x <= 0) return 0;
+                    if (x <= 5) return x / 5;
+                    if (x <= 16) return (16 - x) / 11;
+                    return 0;
+                }),
                 borderColor: '#22c55e',
-                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                backgroundColor: 'rgba(34, 197, 94, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
+            },
+            {
+                label: 'Medium',
+                data: xRange.map(x => {
+                    if (x <= 10 || x >= 30) return 0;
+                    if (x <= 20) return (x - 10) / 10;
+                    return (30 - x) / 10;
+                }),
+                borderColor: '#eab308',
+                backgroundColor: 'rgba(234, 179, 8, 0.3)',
+                fill: true,
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             },
             {
                 label: 'High',
-                data: xRange.map(x => x >= 35 ? 1 : x <= 15 ? 0 : (x - 15) / 20),
+                data: xRange.map(x => {
+                    if (x <= 25) return 0;
+                    if (x <= 35) return (x - 25) / 10;
+                    if (x >= 50) return 1;
+                    return (50 - x) / 15 + (x - 35) / 15;
+                }),
                 borderColor: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                backgroundColor: 'rgba(239, 68, 68, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             }
         ];
-    } else if (canvasId === 'sugGraph') {
+    } else if (type === 'sugar') {
         title = 'Sugar Threshold';
-        xRange = Array.from({length: 51}, (_, i) => i); // 0-50g
+        xLabel = 'Sugar (g)';
+        xMax = 50;
+        const xRange = Array.from({length: xMax + 1}, (_, i) => i);
+        
         datasets = [
             {
                 label: 'Low',
                 data: xRange.map(x => x <= 5 ? 1 : x >= 10 ? 0 : (10 - x) / 5),
                 borderColor: '#22c55e',
-                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                backgroundColor: 'rgba(34, 197, 94, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             },
             {
                 label: 'Medium',
                 data: xRange.map(x => {
                     if (x <= 8 || x >= 28) return 0;
-                    if (x < 18) return (x - 8) / 10;
+                    if (x <= 18) return (x - 8) / 10;
                     return (28 - x) / 10;
                 }),
                 borderColor: '#eab308',
-                backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                backgroundColor: 'rgba(234, 179, 8, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             },
             {
                 label: 'High',
                 data: xRange.map(x => x >= 35 ? 1 : x <= 22 ? 0 : (x - 22) / 13),
                 borderColor: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                backgroundColor: 'rgba(239, 68, 68, 0.3)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 0
+                tension: 0,
+                pointRadius: 0,
+                borderWidth: 2
             }
         ];
     }
 
-    // Add vertical line for current value
-    const annotation = {
-        type: 'line',
-        mode: 'vertical',
-        scaleID: 'x',
-        value: currentValue,
-        borderColor: 'rgba(99, 102, 241, 0.8)',
-        borderWidth: 2,
-        borderDash: [5, 5],
-        label: {
-            content: `${currentValue}`,
-            enabled: true,
-            position: 'top'
-        }
-    };
-
     fuzzyCharts[canvasId] = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: xRange,
+            labels: Array.from({length: xMax + 1}, (_, i) => i),
             datasets: datasets
         },
+        plugins: [{
+            id: 'verticalLine',
+            afterDatasetsDraw: (chart) => {
+                if (currentValue >= 0 && currentValue <= xMax) {
+                    const ctx = chart.ctx;
+                    const xAxis = chart.scales.x;
+                    const yAxis = chart.scales.y;
+                    const x = xAxis.getPixelForValue(currentValue);
+                    
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(x, yAxis.top);
+                    ctx.lineTo(x, yAxis.bottom);
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
+                    ctx.setLineDash([5, 5]);
+                    ctx.stroke();
+                    ctx.restore();
+                    
+                    // Draw label
+                    ctx.fillStyle = 'rgba(99, 102, 241, 0.9)';
+                    ctx.font = 'bold 11px Inter';
+                    ctx.fillText(currentValue.toFixed(0), x + 5, yAxis.top + 15);
+                }
+            }
+        }],
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             plugins: { 
                 legend: { 
                     display: true,
                     position: 'top',
                     labels: {
-                        boxWidth: 20,
-                        padding: 10,
+                        boxWidth: 15,
+                        padding: 8,
                         font: { size: 10 }
                     }
                 },
@@ -494,24 +580,20 @@ function drawFuzzyGraph(canvasId, mf, currentValue) {
                     display: true,
                     text: title,
                     font: { size: 13, weight: 'bold' },
-                    padding: { bottom: 10 }
-                },
-                annotation: {
-                    annotations: {
-                        line1: annotation
-                    }
+                    padding: { top: 5, bottom: 10 }
                 }
             },
             scales: {
                 x: {
                     title: {
                         display: true,
-                        text: canvasId === 'calGraph' ? 'Calories (kcal)' : 
-                              canvasId === 'proGraph' ? 'Protein (g)' :
-                              canvasId === 'fatGraph' ? 'Fat (g)' : 'Sugar (g)',
-                        font: { size: 11 }
+                        text: xLabel,
+                        font: { size: 10 }
                     },
-                    ticks: { maxTicksLimit: 10, font: { size: 9 } }
+                    ticks: { 
+                        maxTicksLimit: 8, 
+                        font: { size: 9 } 
+                    }
                 },
                 y: {
                     min: 0,
@@ -519,9 +601,12 @@ function drawFuzzyGraph(canvasId, mf, currentValue) {
                     title: {
                         display: true,
                         text: 'Membership (μ)',
-                        font: { size: 11 }
+                        font: { size: 10 }
                     },
-                    ticks: { font: { size: 9 } }
+                    ticks: { 
+                        stepSize: 0.2,
+                        font: { size: 9 } 
+                    }
                 }
             }
         }
@@ -530,18 +615,22 @@ function drawFuzzyGraph(canvasId, mf, currentValue) {
 
 function updateSugenoUI(rules, score) {
     let num = 0, den = 0;
-    rules.forEach(([w,z]) => {
-        num += w * z;
-        den += w;
+    rules.forEach(rule => {
+        num += rule.weight * rule.consequent;
+        den += rule.weight;
     });
 
     const sugenoElem = document.getElementById("sugenoCalc");
     if (sugenoElem) {
         sugenoElem.innerHTML = `
-            <strong>Sugeno Weighted Average</strong><br>
-            Σ(w × z) = ${num.toFixed(2)}<br>
-            Σ(w) = ${den.toFixed(2)}<br>
-            <strong>Result = ${score.toFixed(1)}</strong>
+            <strong class="block mb-2">Sugeno Weighted Average</strong>
+            <div class="text-xs space-y-1">
+                <div>Σ(w × z) = ${num.toFixed(3)}</div>
+                <div>Σ(w) = ${den.toFixed(3)}</div>
+                <div class="pt-2 border-t border-slate-300 mt-2">
+                    <strong>Score = ${score.toFixed(2)}</strong>
+                </div>
+            </div>
         `;
     }
 
@@ -550,7 +639,7 @@ function updateSugenoUI(rules, score) {
     const ctx = document.getElementById("outputGraph")?.getContext("2d");
     if (!ctx) return;
     
-    // ✅ NEW: Singleton output graph (line instead of bar)
+    // ✅ Singleton output graph with vertical lines
     const singletonValues = [
         { x: 10, label: 'Junk', color: '#dc2626' },
         { x: 40, label: 'Not Healthy', color: '#f59e0b' },
@@ -558,7 +647,6 @@ function updateSugenoUI(rules, score) {
         { x: 95, label: 'Very Healthy', color: '#15803d' }
     ];
 
-    // Determine which category the score falls into
     let scoreColor = '#94a3b8';
     if (score >= 85) scoreColor = '#15803d';
     else if (score >= 60) scoreColor = '#22c55e';
@@ -566,40 +654,66 @@ function updateSugenoUI(rules, score) {
     else scoreColor = '#dc2626';
 
     outputChart = new Chart(ctx, {
-        type: 'scatter',
+        type: 'line',
         data: {
-            datasets: [
-                {
-                    label: 'Singleton Values',
-                    data: singletonValues.map(v => ({ x: v.x, y: 1 })),
-                    backgroundColor: singletonValues.map(v => v.color),
-                    borderColor: singletonValues.map(v => v.color),
-                    borderWidth: 3,
-                    pointRadius: 8,
-                    pointStyle: 'line',
-                    showLine: false
-                },
-                {
-                    label: 'Current Score',
-                    data: [{ x: score, y: 0.5 }],
-                    backgroundColor: scoreColor,
-                    borderColor: scoreColor,
-                    borderWidth: 2,
-                    pointRadius: 6,
-                    pointStyle: 'circle'
-                }
-            ]
+            labels: Array.from({length: 101}, (_, i) => i),
+            datasets: [{
+                label: 'Singletons',
+                data: Array.from({length: 101}, () => null),
+                borderColor: 'transparent',
+                pointRadius: 0
+            }]
         },
+        plugins: [{
+            id: 'singletonLines',
+            afterDatasetsDraw: (chart) => {
+                const ctx = chart.ctx;
+                const xAxis = chart.scales.x;
+                const yAxis = chart.scales.y;
+                
+                ctx.save();
+                
+                // Draw singleton vertical lines
+                singletonValues.forEach(singleton => {
+                    const x = xAxis.getPixelForValue(singleton.x);
+                    ctx.beginPath();
+                    ctx.moveTo(x, yAxis.bottom);
+                    ctx.lineTo(x, yAxis.top);
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = singleton.color;
+                    ctx.stroke();
+                    
+                    // Label at bottom
+                    ctx.fillStyle = singleton.color;
+                    ctx.font = 'bold 9px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(singleton.label, x, yAxis.bottom + 15);
+                });
+                
+                // Draw current score marker
+                const scoreX = xAxis.getPixelForValue(score);
+                ctx.beginPath();
+                ctx.arc(scoreX, yAxis.getPixelForValue(0.5), 6, 0, Math.PI * 2);
+                ctx.fillStyle = scoreColor;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+        }],
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             plugins: { 
                 legend: { display: false },
                 title: {
                     display: true,
                     text: 'Output Singleton Values',
                     font: { size: 13, weight: 'bold' },
-                    padding: { bottom: 10 }
+                    padding: { top: 5, bottom: 10 }
                 }
             },
             scales: {
@@ -609,13 +723,16 @@ function updateSugenoUI(rules, score) {
                     title: {
                         display: true,
                         text: 'Health Score',
-                        font: { size: 11 }
+                        font: { size: 10 }
                     },
-                    ticks: { font: { size: 9 } }
+                    ticks: { 
+                        maxTicksLimit: 11,
+                        font: { size: 9 } 
+                    }
                 },
                 y: {
                     min: 0,
-                    max: 1.2,
+                    max: 1,
                     display: false
                 }
             }
@@ -775,11 +892,9 @@ function updateDashboard() {
     document.getElementById('barF').style.width = calcPct(current.f, targets.f);
 }
 
-// --- MODAL & EDITOR LOGIC ---
 window.toggleEditMode = function() {
     const modal = document.getElementById('editModal');
     const overlay = document.getElementById('modalOverlay');
-    
     if (modal.classList.contains('hidden')) {
         document.getElementById('editTotal').value = targets.cals;
         updateAdvancedSlidersFromGrams();
@@ -790,7 +905,8 @@ window.toggleEditMode = function() {
         modal.classList.add('hidden');
         overlay.classList.add('hidden');
     }
-}
+};
+
 window.switchTab = function(tab) {
     const basicContent = document.getElementById('basicTabContent');
     const advancedContent = document.getElementById('advancedTabContent');
@@ -907,26 +1023,26 @@ window.saveIntake = function() {
     saveSession();
     window.toggleEditMode();
     updateDashboard();
-}; 
+};
 
 function handleImageSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
-
+    
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
     if (!validTypes.includes(file.type)) {
         alert('Please upload a valid image file (JPEG, PNG, WebP, or GIF)');
         event.target.value = '';
         return;
     }
-
+    
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
         alert('Image size must be less than 10MB');
         event.target.value = '';
         return;
     }
-
+    
     const reader = new FileReader();
     reader.onload = (e) => {
         currentImageBase64 = e.target.result;
@@ -944,20 +1060,18 @@ function handleImageSelect(event) {
 
 window.clearImage = function() {
     currentImageBase64 = null;
-    document.getElementById('imageInput').value = "";
+    document.getElementById('imageInput').value = ""; 
     document.getElementById('imagePreviewContainer').classList.add('hidden');
 };
 
 window.toggleGraphModal = function() {
     const modal = document.getElementById('graphModal');
-
     if (modal.classList.contains('hidden')) {
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-
-    if (!chartInstance) initChart();
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        if (!chartInstance) initChart();
     } else {
-    modal.classList.add('hidden');
+        modal.classList.add('hidden');
     }
 };
 
@@ -965,6 +1079,7 @@ let selectedFoodIndex = null;
 
 function selectFoodItem(index) {
     selectedFoodIndex = index;
+
     document.querySelectorAll(".food-item").forEach((el, i) => {
         el.classList.toggle("active", i === index);
     });
@@ -979,11 +1094,10 @@ function selectFoodItem(index) {
         Number(item.sugar) || 0
     );
 
-    // Pass current values to show vertical line
-    drawFuzzyGraph("calGraph", fuzzyRes.mf.cal, Number(item.calories) || 0);
-    drawFuzzyGraph("proGraph", fuzzyRes.mf.pro, Number(item.protein) || 0);
-    drawFuzzyGraph("fatGraph", fuzzyRes.mf.fat, Number(item.fats) || 0);
-    drawFuzzyGraph("sugGraph", fuzzyRes.mf.sug, Number(item.sugar) || 0);
+    drawFuzzyGraph("calGraph", 'calories', Number(item.calories) || 0);
+    drawFuzzyGraph("proGraph", 'protein', Number(item.protein) || 0);
+    drawFuzzyGraph("fatGraph", 'fats', Number(item.fats) || 0);
+    drawFuzzyGraph("sugGraph", 'sugar', Number(item.sugar) || 0);
 
     updateSugenoUI(fuzzyRes.rules, fuzzyRes.score);
 
@@ -992,9 +1106,9 @@ function selectFoodItem(index) {
 
 function animateGraphs() {
     ["calGraph", "proGraph", "fatGraph", "sugGraph", "outputGraph"].forEach(id => {
-    const el = document.getElementById(id);
+        const el = document.getElementById(id);
+        if (!el) return;
 
-    if (!el) return;
         el.classList.remove("graph-animate");
         void el.offsetWidth;
         el.classList.add("graph-animate");
@@ -1003,11 +1117,11 @@ function animateGraphs() {
 
 function initChart() {
     const canvas = document.getElementById('fuzzyChart');
-
     if (!canvas) {
-    console.warn('Fuzzy chart canvas not found');
-    return;
+        console.warn('Fuzzy chart canvas not found');
+        return;
     }
+    
     try {
         const ctx = canvas.getContext('2d');
         if (!ctx) {
@@ -1042,6 +1156,6 @@ function initChart() {
     }
 }
 
-function updateChart() {
-    if (chartInstance) chartInstance.update();
+function updateChart() { 
+    if (chartInstance) chartInstance.update(); 
 }
