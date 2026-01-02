@@ -70,6 +70,7 @@ JSON Structure per item:
   "protein": int,
   "carbs": int,
   "fats": int,
+  "sugar: int,
   "food_type": "string (Category: Fruit, Vegetable, Fast Food, Drink, etc)",
   "reasoning_summary": "Short 1-sentence explanation"
 }

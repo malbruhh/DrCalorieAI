@@ -14,3 +14,4 @@ set OLLAMA_ORIGINS="*"; ollama serve
 py server.py
     *(Make sure you are inside the `backend` folder first!)*
 ```
+making sure its not that ggaccount

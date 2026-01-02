@@ -3,198 +3,424 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NutriScan - Personalized Tracker</title>
-    <!-- Tailwind CSS -->
+    <title>NutriScan AI - Personalized Calorie Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #F3F4F6; }
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
-        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #F8FAFC; 
+            color: #1e293b;
+            position: relative;
+            z-index: 1;
+            transition: color 0.5s ease;
+        }
 
-        /* Colors */
-        .bg-tracker { background-color: #FFF8F2; } 
-        .border-tracker { border-color: #FFE0C2; }
-        .text-tracker-title { color: #C05621; } 
-        .bg-history { background-color: #F0FDF4; } 
-        .border-history { border-color: #DCFCE7; }
-        .text-history-title { color: #15803D; } 
-        .bg-ai { background-color: #FFFFFF; }
-        .border-ai { border-color: #E9D5FF; } 
-        .text-ai-title { color: #7E22CE; } 
-        .macro-p-bg { background-color: #FF5252; }
-        .macro-c-bg { background-color: #448AFF; }
-        .macro-f-bg { background-color: #FFC107; }
-        .badge-cal { background-color: #FFF7ED; color: #C2410C; }
-        .badge-p { background-color: #FEF2F2; color: #B91C1C; }
-        .badge-c { background-color: #EFF6FF; color: #1D4ED8; }
-        .badge-f { background-color: #FEFCE8; color: #A16207; }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #020617 0%, #1e1b4b 50%, #3b0764 100%);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.theme-dark { color: #f8fafc; }
+        body.theme-dark::before { opacity: 1; }
+
+        .custom-scroll::-webkit-scrollbar { width: 5px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
+        body.theme-dark .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .glass-panel { 
+            transition: background 0.5s ease, border 0.5s ease, backdrop-filter 0.5s ease;
+            border-radius: 32px;
+        }
+        .bg-tracker { background-color: #FFF8F2; border: 1px solid #FFE0C2; } 
+        .bg-history { background-color: #F0FDF4; border: 1px solid #DCFCE7; }
+        .bg-ai { background-color: #FFFFFF; border: 1px solid #f1f5f9; }
+        .item-card { background-color: #FFFFFF; border: 1px solid #f1f5f9; }
+
+        .bar-placeholder { 
+            background-color: #94a3b8;
+            transition: background 0.5s ease; 
+        }
+
+        body.theme-dark .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body.theme-dark .bg-tracker { border-color: rgba(249, 115, 22, 0.4); } 
+        body.theme-dark .bg-history { border-color: rgba(34, 197, 94, 0.4); }
+        body.theme-dark .bg-ai { 
+            background: rgba(126, 34, 206, 0.08);
+            border-color: rgba(147, 197, 253, 0.3);
+        }
+        
+        body.theme-dark .bar-placeholder { background-color: rgba(255, 255, 255, 0.2); }
+        
+        body.theme-dark .item-card { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); }
+        body.theme-dark .bg-history h2 { color: #4ade80; }
+        body.theme-dark .bg-tracker h2 { color: #fb923c; }
+        body.theme-dark .bg-ai h2 { color: #93c5fd; }
+        body.theme-dark input, body.theme-dark select, body.theme-dark textarea { 
+            background: rgba(255,255,255,0.05) !important; 
+            color: #f8fafc !important;
+            border-color: rgba(255,255,255,0.1) !important;
+        }
+
+        #editModal { transition: background 0.5s ease, border 0.5s ease; }
+        body.theme-dark #editModal { 
+            background-color: rgba(15, 23, 42, 0.95); 
+            backdrop-filter: blur(20px);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: #f8fafc;
+        }
+        body.theme-dark #editModal h3 { color: #fdba74 !important; }
+        body.theme-dark #editModal .modal-header,
+        body.theme-dark #editModal .modal-footer {
+            background-color: rgba(255, 255, 255, 0.03) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .theme-switch {
+            width: 70px;
+            height: 36px;
+            position: relative;
+            cursor: pointer;
+            border-radius: 50px;
+            background: #e2e8f0;
+            transition: background 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .theme-switch .knob {
+            width: 28px;
+            height: 28px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .theme-switch .knob i {
+            font-size: 14px;
+            color: #f59e0b;
+            transition: color 0.3s ease;
+        }
+        
+        body.theme-dark .theme-switch { background: #1e293b; }
+        body.theme-dark .theme-switch .knob { transform: translateX(34px); background: #334155; }
+        body.theme-dark .theme-switch .knob i { color: #cbd5e1; }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 5px; background: #e2e8f0; outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ea580c; cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        
+        /* ✅ NEW: Graph container styles */
+        .graph-container {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        body.theme-dark .graph-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .graph-container canvas {
+            width: 100% !important;
+            height: 200px !important;
+        }
+
+        .food-item {
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        .food-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .food-item.active {
+            background: rgba(99, 102, 241, 0.08);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+        }
+
+        .graph-animate {
+            animation: graphPulse 0.35s ease-out;
+        }
+
+        @keyframes graphPulse {
+            from { opacity: 0.3; transform: scale(0.98); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+
+        /* ✅ NEW: Responsive layout fix */
+        @media (max-width: 1024px) {
+            .lg\:grid-cols-12 {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
-<body class="h-screen overflow-hidden flex items-center justify-center p-4 lg:p-8">
+<body class="min-h-screen flex flex-col p-4 lg:p-8 overflow-auto">
 
-    <!-- MAIN GRID -->
-    <div class="w-full max-w-[1400px] h-full grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        <!-- LEFT PANEL: AI ANALYSIS -->
-        <div class="lg:col-span-5 h-full bg-ai rounded-[32px] shadow-sm border border-ai p-6 flex flex-col relative overflow-hidden">
-            <div class="flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-wand-magic-sparkles text-purple-600 text-xl"></i>
-                <h2 class="text-ai-title font-bold text-lg">AI Food Analysis</h2>
-            </div>
-            
-            <div class="flex-grow relative group flex flex-col">
-                <textarea id="userInput" class="w-full h-full p-5 pb-24 text-gray-700 bg-purple-50/50 rounded-2xl border border-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-200 resize-none placeholder-gray-400 text-base leading-relaxed transition-all" placeholder="Describe your food... or upload a photo!"></textarea>
-                
-                <!-- Image Preview Area -->
-                <div id="imagePreviewContainer" class="hidden absolute bottom-20 left-5 right-5 h-24 bg-white rounded-xl border border-purple-100 p-2 shadow-sm items-center justify-between z-10">
-                    <img id="previewImg" src="" class="h-full rounded-lg object-cover border border-gray-200">
-                    <button onclick="clearImage()" class="text-gray-400 hover:text-red-500 p-2"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-
-                <div class="absolute bottom-5 right-5 left-5 flex items-center justify-between">
-                    <!-- Image Upload -->
-                    <div>
-                        <input type="file" id="imageInput" accept="image/*" class="hidden">
-                        <button onclick="document.getElementById('imageInput').click()" 
-                            class="text-purple-400 hover:text-purple-600 transition p-2.5 rounded-full hover:bg-purple-100 bg-white border border-purple-100 shadow-sm" title="Upload Photo">
-                            <i class="fa-solid fa-camera text-xl"></i>
-                        </button>
-                    </div>
-
-                    <div class="flex items-center gap-3">
-                        <span id="statusMsg" class="text-sm text-purple-600 font-medium hidden animate-pulse">Analyzing...</span>
-                        <button id="scanBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-full shadow-lg hover:shadow-purple-500/20 transition-all flex items-center gap-2 font-medium">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <span>Analyze</span>
-                        </button>
-                    </div>
-                </div>
+    <header class="mb-6 flex-shrink-0 flex justify-between items-start">
+        <!-- ✅ SMALLER LOGO -->
+        <div class="w-[180px] h-[100px] glass-panel bg-white/50 rounded-3xl flex items-center justify-center text-gray-400 font-medium shadow-sm">
+            <div class="text-center">
+                <i class="fa-solid fa-image text-2xl mb-1 block opacity-20"></i>
+                <span class="opacity-50 text-sm">LOGO (180x100)</span>
             </div>
         </div>
 
-        <!-- RIGHT PANEL -->
-        <div class="lg:col-span-7 h-full flex flex-col gap-6">
-
-            <!-- TRACKER CARD -->
-            <div id="trackerCard" class="bg-tracker rounded-[32px] shadow-sm border border-tracker p-6 relative transition-all duration-300">
-                <div class="absolute top-6 right-6 flex gap-3 z-10">
-                    <button onclick="toggleGraphModal()" class="text-blue-400 hover:text-blue-600 transition"><i class="fa-regular fa-circle-question text-xl"></i></button>
-                    <button onclick="toggleEditMode()" class="text-orange-400 hover:text-orange-600 transition"><i class="fa-solid fa-pencil text-lg"></i></button>
-                </div>
-
-                <!-- VIEW -->
-                <div id="trackerView">
-                    <div class="flex items-center gap-2 mb-6">
-                        <i class="fa-solid fa-bullseye text-orange-600 text-xl"></i>
-                        <h2 class="text-tracker-title font-bold text-lg">Calorie Tracker</h2>
-                    </div>
-                    <div class="mb-6">
-                        <div class="flex justify-between text-sm text-gray-600 mb-2 font-medium">
-                            <span>Total Calories</span>
-                            <span><span id="displayCals">0</span> / <span id="targetCals">2000</span> cal</span>
-                        </div>
-                        <div class="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex relative shadow-inner">
-                            <div id="barP" class="h-full macro-p-bg transition-all duration-700" style="width: 0%"></div>
-                            <div id="barC" class="h-full macro-c-bg transition-all duration-700" style="width: 0%"></div>
-                            <div id="barF" class="h-full macro-f-bg transition-all duration-700" style="width: 0%"></div>
-                            <div class="absolute inset-0 flex items-center justify-center"><span id="calPercent" class="text-xs font-bold text-gray-800/70">0%</span></div>
-                        </div>
-                    </div>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="flex justify-between text-xs text-red-500 mb-1 font-semibold"><span>Protein</span><span><span id="displayP">0</span>g / <span id="targetP">150</span>g</span></div>
-                            <div class="w-full h-2 bg-gray-200 rounded-full"><div id="lineP" class="h-full macro-p-bg rounded-full transition-all duration-700" style="width: 0%"></div></div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs text-blue-500 mb-1 font-semibold"><span>Carbs</span><span><span id="displayC">0</span>g / <span id="targetC">200</span>g</span></div>
-                            <div class="w-full h-2 bg-gray-200 rounded-full"><div id="lineC" class="h-full macro-c-bg rounded-full transition-all duration-700" style="width: 0%"></div></div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs text-yellow-600 mb-1 font-semibold"><span>Fat</span><span><span id="displayF">0</span>g / <span id="targetF">65</span>g</span></div>
-                            <div class="w-full h-2 bg-gray-200 rounded-full"><div id="lineF" class="h-full macro-f-bg rounded-full transition-all duration-700" style="width: 0%"></div></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- EDIT -->
-                <div id="trackerEdit" class="hidden">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-tracker-title font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-user-gear"></i> Settings</h2>
-                        <div class="flex gap-3 mr-10">
-                            <button onclick="saveProfile()" class="text-green-600 font-medium text-sm flex items-center gap-1"><i class="fa-solid fa-check"></i> Save</button>
-                            <button onclick="toggleEditMode()" class="text-red-500 font-medium text-sm flex items-center gap-1"><i class="fa-solid fa-xmark"></i> Cancel</button>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div><label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Height (cm)</label><input type="number" id="userHeight" value="170" class="w-full p-2 rounded-lg border text-sm"></div>
-                        <div><label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Weight (kg)</label><input type="number" id="userWeight" value="70" class="w-full p-2 rounded-lg border text-sm"></div>
-                        <div><label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Age</label><input type="number" id="userAge" value="25" class="w-full p-2 rounded-lg border text-sm"></div>
-                        <div>
-                            <label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Gender</label>
-                            <select id="userGender" class="w-full p-2 rounded-lg border text-sm bg-white"><option value="male">Male</option><option value="female">Female</option></select>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3 mb-5">
-                        <button onclick="setGoal('bulk')" class="py-2 rounded-lg bg-orange-100 text-orange-700 text-xs font-semibold hover:bg-orange-200">Bulking</button>
-                        <button onclick="setGoal('maintain')" class="py-2 rounded-lg bg-[#E65100] text-white text-xs font-semibold hover:bg-[#C2410C]">Maintain</button>
-                        <button onclick="setGoal('cut')" class="py-2 rounded-lg bg-orange-100 text-orange-700 text-xs font-semibold hover:bg-orange-200">Cutting</button>
-                        <button onclick="setGoal('athlete')" class="py-2 rounded-lg bg-orange-100 text-orange-700 text-xs font-semibold hover:bg-orange-200">Gym Goer</button>
-                    </div>
-                    <button onclick="calculateBMR()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold shadow mb-4">Calculate Targets</button>
-                    <div class="grid grid-cols-4 gap-2">
-                        <div class="text-center"><label class="block text-[10px] text-gray-400 font-bold mb-1">Total</label><input type="number" id="editTotal" class="w-full p-1 border rounded text-xs text-center font-mono"></div>
-                        <div class="text-center"><label class="block text-[10px] text-red-400 font-bold mb-1">P</label><input type="number" id="editP" class="w-full p-1 border border-red-200 rounded text-xs text-center font-mono"></div>
-                        <div class="text-center"><label class="block text-[10px] text-blue-400 font-bold mb-1">C</label><input type="number" id="editC" class="w-full p-1 border border-blue-200 rounded text-xs text-center font-mono"></div>
-                        <div class="text-center"><label class="block text-[10px] text-yellow-500 font-bold mb-1">F</label><input type="number" id="editF" class="w-full p-1 border border-yellow-200 rounded text-xs text-center font-mono"></div>
-                    </div>
+        <!-- ✅ RESET & THEME BUTTONS -->
+        <div class="flex items-center gap-3">
+            <button onclick="resetApp()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-10 h-10 rounded-full flex items-center justify-center transition shadow-sm active:scale-90" title="Reset App">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+            <div class="theme-switch" onclick="toggleTheme()">
+                <div class="knob">
+                    <i id="themeIcon" class="fa-solid fa-sun"></i>
                 </div>
             </div>
+        </div>
+    </header>
 
-            <!-- HISTORY LIST -->
-            <div class="bg-history rounded-[32px] shadow-sm border border-history p-6 flex-grow overflow-hidden flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <div class="flex items-center gap-3">
-                        <h2 class="text-history-title font-bold text-lg">Food History</h2>
-                        <button id="undoBtn" onclick="undoDelete()" class="hidden text-xs bg-white border border-green-200 text-green-700 hover:bg-green-50 px-2 py-1 rounded-lg flex items-center gap-1 transition shadow-sm">
-                            <i class="fa-solid fa-rotate-left"></i> Undo
-                        </button>
-                    </div>
+    <div class="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- COLUMN 1: HISTORY -->
+        <div class="lg:col-span-3 glass-panel bg-history p-6 flex flex-col overflow-hidden shadow-sm min-h-[400px] lg:min-h-[600px]">
+            <div class="flex justify-between items-center mb-4 gap-2">
+                <h2 class="text-green-800 font-bold text-lg">History</h2>
+                <div class="flex items-center gap-2">
+                    <button id="undoBtn" class="hidden text-xs bg-gray-800 text-white px-3 py-1 rounded-full hover:bg-gray-700 transition">Undo</button>
                     <span id="itemCount" class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">0 items</span>
                 </div>
-                <div class="flex-grow overflow-y-auto custom-scroll pr-2">
-                    <ul id="foodLog" class="space-y-3"></ul>
+            </div>
+            <div class="flex-grow overflow-y-auto custom-scroll pr-2">
+                <ul id="foodLog" class="space-y-3"></ul>
+            </div>
+        </div>
+
+        <!-- COLUMN 2: TRACKER & AI -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+            <div id="trackerCardContainer" class="relative">
+                <div class="glass-panel bg-tracker p-6 relative flex-shrink-0 shadow-sm">
+                    <div class="absolute top-6 right-6 flex gap-3 z-10">
+                        <button onclick="toggleEditMode()" id="editBtn" class="bg-orange-100 text-orange-600 hover:bg-orange-200 w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 shadow-sm">
+                            <i class="fa-solid fa-pen text-sm"></i>
+                        </button>
+                    </div>
+
+                    <div id="trackerView">
+                        <h2 class="text-orange-800 font-bold text-lg mb-4"><i class="fa-solid fa-fire mr-2"></i>Calorie Tracker</h2>
+                        <div class="flex items-center gap-8">
+                            <div class="relative w-40 h-40 flex-shrink-0">
+                                <canvas id="calorieDonut"></canvas>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+                                    <span id="calFraction" class="text-sm font-bold leading-tight">0/2000</span>
+                                    <span class="text-[10px] opacity-50 uppercase font-bold tracking-tight">kcal</span>
+                                </div>
+                            </div>
+                            <div class="flex-grow space-y-4">
+                                <div>
+                                    <div class="flex justify-between text-[11px] font-bold text-red-500 mb-1">
+                                        <span>PROTEIN</span>
+                                        <span><span id="displayP">0</span>/<span id="targetP">100</span> g</span>
+                                    </div>
+                                    <div class="w-full h-2 bar-placeholder rounded-full overflow-hidden transition-all duration-500"><div id="barP" class="h-full bg-red-500 transition-all duration-700"></div></div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-[11px] font-bold text-blue-500 mb-1">
+                                        <span>CARBS</span>
+                                        <span><span id="displayC">0</span>/<span id="targetC">250</span> g</span>
+                                    </div>
+                                    <div class="w-full h-2 bar-placeholder rounded-full overflow-hidden transition-all duration-500"><div id="barC" class="h-full bg-blue-500 transition-all duration-700"></div></div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-[11px] font-bold text-yellow-600 mb-1">
+                                        <span>FAT</span>
+                                        <span><span id="displayF">0</span>/<span id="targetF">66</span> g</span>
+                                    </div>
+                                    <div class="w-full h-2 bar-placeholder rounded-full overflow-hidden transition-all duration-500"><div id="barF" class="h-full bg-yellow-500 transition-all duration-700"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-black/5 flex justify-center gap-4 text-xs opacity-60">
+                            <span>Consumed: <b id="displayCals" class="text-orange-500">0</b> kcal</span>
+                            <span>|</span>
+                            <span>Target: <b id="targetCals">2000</b> kcal</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EDIT INTAKE MODAL -->
+                <div id="editModal" class="hidden absolute top-0 right-0 w-[420px] bg-white rounded-3xl shadow-2xl border border-gray-200 z-50 overflow-hidden transform origin-top-right transition-all">
+                    <div class="modal-header bg-orange-50 p-4 border-b border-orange-100 flex justify-between items-center transition-colors">
+                        <h3 class="font-bold text-orange-800">Edit Intake</h3>
+                        <button onclick="toggleEditMode()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+                    </div>
+                    
+                    <div class="relative flex border-b text-sm font-medium">
+                        <button onclick="switchTab('basic')" id="basicTabBtn" class="flex-1 py-3 text-orange-600 transition-colors duration-300">Basic</button>
+                        <button onclick="switchTab('advanced')" id="advancedTabBtn" class="flex-1 py-3 text-gray-400 hover:text-gray-600 transition-colors duration-300">Advanced</button>
+                        <div id="tabIndicator" class="absolute bottom-0 left-0 w-1/2 h-0.5 bg-orange-500 transition-all duration-300 ease-out"></div>
+                    </div>
+
+                    <div class="p-6 max-h-[450px] overflow-y-auto custom-scroll">
+                        <div id="basicTabContent" class="space-y-5">
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="space-y-1">
+                                        <label class="text-[10px] font-bold text-gray-400 uppercase">Weight (kg)</label>
+                                        <input type="number" id="userWeight" value="70" class="w-full p-2 bg-gray-50 border rounded-xl text-sm outline-none">
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-[10px] font-bold text-gray-400 uppercase">Height (cm)</label>
+                                        <input type="number" id="userHeight" value="170" class="w-full p-2 bg-gray-50 border rounded-xl text-sm outline-none">
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-[10px] font-bold text-gray-400 uppercase">Age</label>
+                                        <input type="number" id="userAge" value="25" class="w-full p-2 bg-gray-50 border rounded-xl text-sm outline-none">
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-[10px] font-bold text-gray-400 uppercase">Gender</label>
+                                        <select id="userGender" class="w-full p-2 bg-gray-50 border rounded-xl text-sm outline-none"><option value="male">Male</option><option value="female">Female</option></select>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button onclick="setGoalPreset('cut', this)" class="preset-btn p-2 border rounded-xl text-xs bg-orange-50 text-orange-700 font-bold transition-all duration-200 hover:scale-[1.02]">Cutting</button>
+                                    <button onclick="setGoalPreset('maintain', this)" class="preset-btn p-2 border rounded-xl text-xs bg-orange-50 text-orange-700 font-bold transition-all duration-200 hover:scale-[1.02]">Maintain</button>
+                                    <button onclick="setGoalPreset('bulk', this)" class="preset-btn p-2 border rounded-xl text-xs bg-orange-50 text-orange-700 font-bold transition-all duration-200 hover:scale-[1.02]">Bulking</button>
+                                    <button onclick="setGoalPreset('athlete', this)" class="preset-btn p-2 border rounded-xl text-xs bg-orange-50 text-orange-700 font-bold transition-all duration-200 hover:scale-[1.02]">Gym Goer</button>
+                                </div>
+                            </div>
+
+                            <div class="relative flex items-center py-4 -mx-6">
+                                <div class="flex-grow border-t border-gray-100 opacity-20"></div>
+                                <span class="flex-shrink mx-4 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] bg-transparent px-2">or</span>
+                                <div class="flex-grow border-t border-gray-100 opacity-20"></div>
+                            </div>
+
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">Manual Calorie Target (kcal)</label>
+                                <input type="number" id="editTotal" class="w-full p-3 bg-gray-50 border rounded-xl text-lg font-bold text-orange-700 outline-none focus:ring-2 focus:ring-orange-200 transition-all">
+                            </div>
+                        </div>
+
+                        <div id="advancedTabContent" class="hidden space-y-6">
+                            <div class="space-y-4">
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-xs font-bold text-red-500"><span>Protein (%)</span> <span id="label-p">20% (100g)</span></div>
+                                    <input type="range" id="slider-p" min="0" max="100" value="20">
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-xs font-bold text-blue-500"><span>Carbs (%)</span> <span id="label-c">50% (250g)</span></div>
+                                    <input type="range" id="slider-c" min="0" max="100" value="50">
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-xs font-bold text-yellow-600"><span>Fat (%)</span> <span id="label-f">30% (66g)</span></div>
+                                    <input type="range" id="slider-f" min="0" max="100" value="30">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer p-4 bg-gray-50 border-t flex items-center justify-between transition-colors">
+                        <div class="group relative">
+                            <i class="fa-solid fa-circle-info text-gray-300 hover:text-orange-500 transition cursor-help text block text-lg"></i>
+                            <div class="absolute bottom-full left-0 mb-2 w-48 p-3 bg-gray-800 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition pointer-events-none shadow-xl z-50">
+                                <p class="font-bold border-b border-gray-600 mb-1 pb-1">Calorie Logic:</p>
+                                <ul class="space-y-1"><li>&bull; 1g Protein = 4 kcal</li><li>&bull; 1g Carbs = 4 kcal</li><li>&bull; 1g Fat = 9 kcal</li></ul>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="toggleEditMode()" class="px-5 py-2 text-gray-500 font-bold text-sm hover:text-gray-700 transition">Cancel</button>
+                            <button onclick="saveIntake()" class="px-6 py-2 bg-orange-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-orange-700 transition active:scale-95">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel bg-ai p-6 flex flex-col relative overflow-hidden shadow-sm min-h-[350px]">
+                <h2 class="text-purple-700 font-bold text-lg mb-4"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>AI Analysis</h2>
+                <div class="flex-grow flex flex-col relative">
+                    <textarea id="userInput" class="w-full flex-grow p-5 pb-24 bg-transparent rounded-2xl border border-black/5 focus:outline-none focus:ring-1 focus:ring-purple-200 resize-none placeholder-gray-400" placeholder="Describe your food..."></textarea>
+                    <div id="imagePreviewContainer" class="hidden absolute bottom-20 left-5 right-5 h-24 glass-panel bg-white/50 rounded-xl border p-2 items-center justify-between transition-all"><img id="previewImg" class="h-full rounded-lg object-cover"><button onclick="clearImage()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-xmark"></i></button></div>
+                    <div class="absolute bottom-5 right-5 left-5 flex items-center justify-end gap-3">
+                        <span id="statusMsg" class="text-xs text-purple-600 hidden">Analyzing...</span>
+                        <input type="file" id="imageInput" accept="image/*" class="hidden">
+                        <button onclick="document.getElementById('imageInput').click()" class="w-11 h-11 flex items-center justify-center glass-panel border rounded-full text-purple-400 transition hover:bg-white/10 shadow-sm flex-shrink-0">
+                            <i class="fa-solid fa-camera text-xl"></i>
+                        </button>
+                        <button id="scanBtn" class="bg-purple-600 text-white px-6 py-2 h-11 rounded-full font-medium transition hover:bg-purple-700 active:scale-95 shadow-md flex items-center gap-2">
+                            Analyze <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ✅ COLUMN 3: GRAPHS WITH CONTAINERS -->
+        <div class="lg:col-span-4 glass-panel bg-white rounded-[32px] shadow-sm border border-gray-200 p-6 overflow-y-auto custom-scroll">
+            <h3 class="font-bold text-slate-700 mb-4 text-sm uppercase tracking-wide">Fuzzy Logic Explainability</h3>
+            
+            <div class="space-y-4">
+                <div class="graph-container">
+                    <canvas id="calGraph"></canvas>
+                </div>
+                
+                <div class="graph-container">
+                    <canvas id="proGraph"></canvas>
+                </div>
+                
+                <div class="graph-container">
+                    <canvas id="fatGraph"></canvas>
+                </div>
+                
+                <div class="graph-container">
+                    <canvas id="sugGraph"></canvas>
+                </div>
+                
+                <div id="sugenoCalc" class="text-xs bg-slate-100 rounded-xl p-3 font-mono text-slate-700">
+                    Sugeno calculation will appear here.
+                </div>
+                
+                <div class="graph-container">
+                    <canvas id="outputGraph"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL -->
+    <div id="modalOverlay" onclick="toggleEditMode()" class="hidden fixed inset-0 bg-black/30 z-40 transition-opacity"></div>
+
     <div id="graphModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl relative">
-            <button onclick="toggleGraphModal()" class="absolute top-5 right-5 text-gray-300 hover:text-gray-500 transition"><i class="fa-solid fa-xmark text-2xl"></i></button>
-            <div class="mb-6"><h3 class="text-xl font-bold text-gray-800">Food Grade Calculator</h3><p class="text-sm text-gray-500 mt-1">Fuzzy Logic Membership Evaluation</p></div>
-            <div class="relative h-64 w-full bg-slate-50 rounded-xl border border-slate-100 p-2"><canvas id="fuzzyChart"></canvas></div>
-            <div class="mt-6 flex items-start gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                <i class="fa-solid fa-circle-info text-blue-500 mt-0.5"></i>
-                <div class="text-xs text-blue-800 leading-relaxed">
-                    <p class="font-bold mb-1">How to read this graph:</p>
-                    <p>Colors represent categories (Junk, Not Healthy, Healthy, Very Healthy). The <span class="font-bold border-l-2 border-black pl-1">Black Line</span> shows where your food lands (Score 0-100).</p>
-                </div>
-            </div>
+            <button onclick="toggleGraphModal()" class="absolute top-5 right-5 text-gray-300"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            <h3 class="text-xl font-bold mb-6 text-slate-800">Food Grade Calculator</h3>
+            <div class="relative h-64 w-full"><canvas id="fuzzyChart"></canvas></div>
         </div>
     </div>
 
-    <!-- Link to Logic -->
     <script src="app.js"></script>
 </body>
 </html>
