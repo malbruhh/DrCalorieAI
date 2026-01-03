@@ -72,6 +72,8 @@
         body.theme-dark .bg-history h2 { color: #4ade80; }
         body.theme-dark .bg-tracker h2 { color: #fb923c; }
         body.theme-dark .bg-ai h2 { color: #93c5fd; }
+        body.theme-dark .bg-fuzzy h2 { color: #f87171; }
+        body.theme-dark .bg-fuzzy h4 { color: #d6d6d6; }
         body.theme-dark input, body.theme-dark select, body.theme-dark textarea { 
             background: rgba(255,255,255,0.05) !important; 
             color: #f8fafc !important;
@@ -130,7 +132,6 @@
         input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 5px; background: #e2e8f0; outline: none; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ea580c; cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
         
-        /* ✅ NEW: Graph container styles */
         .graph-container {
             background: white;
             border: 1px solid #e2e8f0;
@@ -138,6 +139,7 @@
             padding: 16px;
             margin-bottom: 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            flex-direction: column;
         }
 
         body.theme-dark .graph-container {
@@ -145,9 +147,16 @@
             border-color: rgba(255, 255, 255, 0.1);
         }
 
+        .graph-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
         .graph-container canvas {
-            width: 100% !important;
-            height: 200px !important;
+            width: 100% !important; /* Take up the full width of the div */
+            max-height: 300px;      /* ⬅️ Prevents it from becoming awkwardly giant */
+            height: auto !important;
         }
 
         .food-item {
@@ -173,7 +182,6 @@
             to   { opacity: 1; transform: scale(1); }
         }
 
-        /* ✅ NEW: Responsive layout fix */
         @media (max-width: 1024px) {
             .lg\:grid-cols-12 {
                 grid-template-columns: 1fr;
@@ -182,9 +190,8 @@
     </style>
 </head>
 <body class="min-h-screen flex flex-col p-4 lg:p-8 overflow-auto">
-
+    <!-- Logo -->
     <header class="mb-6 flex-shrink-0 flex justify-between items-start">
-        <!-- ✅ SMALLER LOGO -->
         <div class="w-[180px] h-[100px] glass-panel bg-white/50 rounded-3xl flex items-center justify-center text-gray-400 font-medium shadow-sm">
             <div class="text-center">
                 <i class="fa-solid fa-image text-2xl mb-1 block opacity-20"></i>
@@ -192,7 +199,7 @@
             </div>
         </div>
 
-        <!-- ✅ RESET & THEME BUTTONS -->
+        <!-- Reset and Theme button-->
         <div class="flex items-center gap-3">
             <button onclick="resetApp()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-10 h-10 rounded-full flex items-center justify-center transition shadow-sm active:scale-90" title="Reset App">
                 <i class="fa-solid fa-rotate-right"></i>
@@ -379,33 +386,50 @@
             </div>
         </div>
 
-        <!-- ✅ COLUMN 3: GRAPHS WITH CONTAINERS -->
-        <div class="lg:col-span-4 glass-panel bg-white rounded-[32px] shadow-sm border border-gray-200 p-6 overflow-y-auto custom-scroll">
-            <h3 class="font-bold text-slate-700 mb-4 text-sm uppercase tracking-wide">Fuzzy Logic Explainability</h3>
+        <!--COLUMN 3: GRAPHS -->
+        <div class="bg-fuzzy lg:col-span-4 glass-panel bg-white rounded-[32px] shadow-sm border border-gray-200 p-6 overflow-y-auto custom-scroll">
+            <h2 class="text-red-500 font-bold text-lg mb-4" ><i class="fa-solid fa-chart-area mr-2"></i>Food Grade Fuzzification</h2>
+            <h4 class="font-bold text-slate-600 mb-4 text-sm uppercase tracking-wide" id="food-name"></h4>
+
             
             <div class="space-y-4">
                 <div class="graph-container">
+                     <div class="flex justify-center mb-2">
+                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide">Food Grade Score</h4>
+                    </div>
+                    <canvas id="outputGraph"></canvas>
+                </div>
+
+                <div id="sugenoCalc" class="text-xs bg-slate-100 rounded-xl p-3 font-mono text-slate-700">
+                    Sugeno calculation will appear here.
+                </div>
+
+                <div class="graph-container">
+                    <div class="flex justify-center mb-2">
+                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide">Calorie Threshold</h4>
+                    </div>
                     <canvas id="calGraph"></canvas>
                 </div>
-                
+
                 <div class="graph-container">
+                    <div class="flex justify-center mb-2">
+                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide">Protein Threshold</h4>
+                    </div>
                     <canvas id="proGraph"></canvas>
                 </div>
                 
                 <div class="graph-container">
+                    <div class="flex justify-center mb-2">
+                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide">Fat Threshold</h4>
+                    </div>
                     <canvas id="fatGraph"></canvas>
                 </div>
                 
                 <div class="graph-container">
+                    <div class="flex justify-center mb-2">
+                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide">Sugar Threshold</h4>
+                    </div>
                     <canvas id="sugGraph"></canvas>
-                </div>
-                
-                <div id="sugenoCalc" class="text-xs bg-slate-100 rounded-xl p-3 font-mono text-slate-700">
-                    Sugeno calculation will appear here.
-                </div>
-                
-                <div class="graph-container">
-                    <canvas id="outputGraph"></canvas>
                 </div>
             </div>
         </div>

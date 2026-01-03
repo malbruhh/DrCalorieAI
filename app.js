@@ -88,6 +88,7 @@ function applyTheme(theme) {
     updateDashboard();
 }
 
+
 // --- Persistence Logic ---
 function saveSession() {
     try {
@@ -170,7 +171,6 @@ async function analyzeFood() {
                 console.warn('Skipping invalid item:', item);
                 return;
             }
-            
             history.unshift(item);
             if (history.length > MAX_HISTORY_LENGTH) history.pop(); 
 
@@ -191,7 +191,7 @@ async function analyzeFood() {
                 console.warn('Fuzzy calculation failed for item:', item);
                 return;
             }
-            
+            returnFoodName(item.food_name);
             drawFuzzyGraph("calGraph", 'calories', Number(item.calories) || 0);
             drawFuzzyGraph("proGraph", 'protein', Number(item.protein) || 0);
             drawFuzzyGraph("fatGraph", 'fats', Number(item.fats) || 0);
@@ -242,12 +242,10 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
         };
     }
     
-    // Trapezoidal membership functions and Triangles
     const trapLow = (x, peak, high) => (x <= peak ? 1 : x >= high ? 0 : (high - x) / (high - peak));
     const tri = (x, low, peak, high) => (x <= low || x >= high) ? 0 : (x < peak ? (x - low) / (peak - low) : (high - x) / (high - peak));
     const trapHigh = (x, low, peak) => (x >= peak ? 1 : x <= low ? 0 : (x - low) / (peak - low));
 
-    // Updated Membership Function Ranges (improved thresholds)
     const mf = {
         cal: { 
             low: trapLow(calories, 0, 250),        // Fully low: 0-250 kcal
@@ -274,9 +272,6 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
     // Sugeno Consequent Values
     const Z_VERY_HEALTHY = 95, Z_HEALTHY = 75, Z_MODERATE = 55, Z_NOT_HEALTHY = 35, Z_JUNK = 10;
     let rules = [];
-
-    // ===== JUNK FOOD RULES (z=10) =====
-    // Extreme sugar or unbalanced macros
     rules.push({ weight: mf.sug.high, consequent: Z_JUNK, desc: "Excessive sugar content" });
     rules.push({ weight: Math.min(mf.cal.high, mf.sug.med, mf.pro.low), consequent: Z_JUNK, desc: "High cal + Med sugar + Low protein (empty calories)" });
     rules.push({ weight: Math.min(mf.fat.high, mf.pro.low, mf.cal.high), consequent: Z_JUNK, desc: "High fat + Low protein + High cal (fried junk)" });
@@ -290,7 +285,7 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
     rules.push({ weight: Math.min(mf.fat.high, mf.sug.med, mf.pro.low), consequent: Z_NOT_HEALTHY, desc: "High fat + Med sugar + Low protein" });
     rules.push({ weight: Math.min(mf.cal.high, mf.fat.med, mf.pro.low), consequent: Z_NOT_HEALTHY, desc: "High cal with poor protein content" });
     rules.push({ weight: Math.min(mf.sug.med, mf.fat.med, mf.pro.low), consequent: Z_NOT_HEALTHY, desc: "Moderate junk with low protein" });
-    
+
     // ===== MODERATE RULES (z=55) =====
     // Balanced but not optimal
     rules.push({ weight: Math.min(mf.cal.med, mf.pro.med, mf.sug.med), consequent: Z_MODERATE, desc: "All moderate - balanced but not optimal" });
@@ -314,20 +309,17 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
     rules.push({ weight: Math.min(mf.pro.high, mf.sug.low, mf.fat.low), consequent: Z_VERY_HEALTHY, desc: "High protein + Low sugar + Low fat (ideal lean)" });
     rules.push({ weight: Math.min(mf.cal.low, mf.pro.high, mf.sug.low), consequent: Z_VERY_HEALTHY, desc: "Low cal + High protein + Low sugar (optimal)" });
     rules.push({ weight: Math.min(mf.cal.low, mf.pro.med, mf.sug.low, mf.fat.low), consequent: Z_VERY_HEALTHY, desc: "Low cal + Med protein + Low sugar/fat (clean)" });
-    rules.push({ weight: Math.min(mf.pro.high, mf.cal.med, mf.sug.low, mf.fat.low), consequent: Z_VERY_HEALTHY, desc: "High protein + Med cal + Low sugar/fat (bodybuilding)" 
-    });
+    rules.push({ weight: Math.min(mf.pro.high, mf.cal.med, mf.sug.low, mf.fat.low), consequent: Z_VERY_HEALTHY, desc: "High protein + Med cal + Low sugar/fat (bodybuilding)" });
 
+    // ===== EDGE CASE RULES (Additional coverage) =====
+    // Handle nutritional edge cases
+    rules.push({ weight: Math.min(mf.cal.low, mf.pro.low, mf.fat.low), consequent: Z_NOT_HEALTHY, desc: "Too low in everything (malnutrition risk)" });
+    rules.push({ weight: Math.min(mf.fat.high, mf.pro.high, mf.cal.high, mf.sug.low), consequent: Z_MODERATE, desc: "Calorie-dense but clean macros (bulking food)" });
+    rules.push({ weight: Math.min(mf.sug.low, mf.fat.low, mf.pro.low, mf.cal.low), consequent: Z_MODERATE, desc: "Very light food (veggies, but lacks protein)" });
+    rules.push({ weight: Math.min(mf.pro.high, mf.cal.high, mf.sug.low, mf.fat.low), consequent: Z_HEALTHY, desc: "Protein shake/supplement (high protein efficiency)" });
+    rules.push({ weight: Math.min(mf.fat.high, mf.cal.med, mf.sug.low, mf.pro.low), consequent: Z_NOT_HEALTHY, desc: "High fat without protein benefit (chips, fries)" });
 
-// ===== REMOVED/CONSOLIDATED RULES =====
-// These were causing conflicts and have been removed:
-// - "Dangerous Fat levels" (fat.high alone) - too punitive, fat context matters
-// - "High fat + Low sugar" → NOT_HEALTHY - conflicts with keto foods
-// - "Med cal + High fat" → NOT_HEALTHY - too broad, depends on protein
-// - Duplicate "Low cal + Low sugar" rules
-// - "High Sugar + High Protein" - consolidated into moderate category
-// - Standalone "High cal + Med protein" - needs sugar context
-
-    // ✅ Sugeno Defuzzification: Weighted Average
+    // Sugeno Defuzzification: Weighted Average
     // score = Σ(wi × zi) / Σ(wi)
     let sumWeight = 0, sumWeightedValue = 0;
     rules.forEach(rule => {
@@ -383,7 +375,6 @@ function drawFuzzyGraph(canvasId, type, currentValue) {
     
     // Define membership functions based on type
     if (type === 'calories') {
-        title = 'Calorie Threshold';
         xLabel = 'Calories (kcal)';
         xMax = 1000;
         const xRange = Array.from({length: xMax + 1}, (_, i) => i);
@@ -425,7 +416,6 @@ function drawFuzzyGraph(canvasId, type, currentValue) {
             }
         ];
     } else if (type === 'protein') {
-        title = 'Protein Threshold';
         xLabel = 'Protein (g)';
         xMax = 60;
         const xRange = Array.from({length: xMax + 1}, (_, i) => i);
@@ -467,7 +457,6 @@ function drawFuzzyGraph(canvasId, type, currentValue) {
             }
         ];
     } else if (type === 'fats') {
-        title = 'Fat Threshold';
         xLabel = 'Fat (g)';
         xMax = 50;
         const xRange = Array.from({length: xMax + 1}, (_, i) => i);
@@ -509,7 +498,6 @@ function drawFuzzyGraph(canvasId, type, currentValue) {
             }
         ];
     } else if (type === 'sugar') {
-        title = 'Sugar Threshold';
         xLabel = 'Sugar (g)';
         xMax = 50;
         const xRange = Array.from({length: xMax + 1}, (_, i) => i);
@@ -572,13 +560,13 @@ function drawFuzzyGraph(canvasId, type, currentValue) {
                     ctx.moveTo(x, yAxis.top);
                     ctx.lineTo(x, yAxis.bottom);
                     ctx.lineWidth = 2;
-                    ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
+                    ctx.strokeStyle = 'rgba(99, 102, 241, 1)';
                     ctx.setLineDash([5, 5]);
                     ctx.stroke();
                     ctx.restore();
                     
                     // Draw label
-                    ctx.fillStyle = 'rgba(99, 102, 241, 0.9)';
+                    ctx.fillStyle = 'rgba(99, 102, 241, 1)';
                     ctx.font = 'bold 11px Inter';
                     ctx.fillText(currentValue.toFixed(0), x + 5, yAxis.top + 15);
                 }
@@ -587,7 +575,7 @@ function drawFuzzyGraph(canvasId, type, currentValue) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            aspectRatio: 2,
+            aspectRatio: 1.5,
             plugins: { 
                 legend: { 
                     display: true,
@@ -669,10 +657,10 @@ function updateSugenoUI(rules, score) {
         { x: 95, label: 'Very Healthy', color: '#15803d' }
     ];
 
-    let scoreColor = '#94a3b8';
-    if (score >= 85) scoreColor = '#15803d';
-    else if (score >= 60) scoreColor = '#22c55e';
-    else if (score >= 35) scoreColor = '#f59e0b';
+    let scoreColor = '#6d7785ff';
+    if (score >= 95) scoreColor = '#15803d';
+    else if (score >= 75) scoreColor = '#22c55e';
+    else if (score >= 40) scoreColor = '#f59e0b';
     else scoreColor = '#dc2626';
 
     outputChart = new Chart(ctx, {
@@ -709,7 +697,7 @@ function updateSugenoUI(rules, score) {
                     ctx.fillStyle = singleton.color;
                     ctx.font = 'bold 9px Inter';
                     ctx.textAlign = 'center';
-                    ctx.fillText(singleton.label, x, yAxis.bottom + 15);
+                    ctx.fillText(singleton.label, x, yAxis.bottom + 35);
                 });
                 
                 // Draw current score marker
@@ -731,27 +719,31 @@ function updateSugenoUI(rules, score) {
             aspectRatio: 2,
             plugins: { 
                 legend: { display: false },
-                title: {
-                    display: true,
-                    text: 'Output Singleton Values',
-                    font: { size: 13, weight: 'bold' },
-                    padding: { top: 5, bottom: 10 }
-                }
+                // title: {
+                //     display: false,
+                //     text: 'Food Grade Score',
+                //     font: { size: 13, weight: 'bold' },
+                //     padding: { top: 5, bottom: 10 }
+                // }
             },
-            scales: {
-                x: {
-                    min: 0,
-                    max: 100,
-                    title: {
-                        display: true,
-                        text: 'Health Score',
-                        font: { size: 10 }
+                scales: {
+                    x: {
+                        min: 0,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Health Score',
+                            font: { size: 10, weight: 'bold'},
+                            padding: {
+                                top: 20,
+                                botton: 10
+                            }
+                        },
+                        ticks: { 
+                            maxTicksLimit: 11,
+                            font: { size: 9 } 
+                        }
                     },
-                    ticks: { 
-                        maxTicksLimit: 11,
-                        font: { size: 9 } 
-                    }
-                },
                 y: {
                     min: 0,
                     max: 1,
@@ -1117,6 +1109,7 @@ function selectFoodItem(index) {
         Number(item.sugar) || 0
     );
 
+    returnFoodName(item.food_name);
     drawFuzzyGraph("calGraph", 'calories', Number(item.calories) || 0);
     drawFuzzyGraph("proGraph", 'protein', Number(item.protein) || 0);
     drawFuzzyGraph("fatGraph", 'fats', Number(item.fats) || 0);
@@ -1181,4 +1174,11 @@ function initChart() {
 
 function updateChart() { 
     if (chartInstance) chartInstance.update(); 
+}
+
+function returnFoodName(name) {
+    const nameElem = document.getElementById('food-name');
+    if (nameElem) {
+        nameElem.innerText = name;
+    }
 }
