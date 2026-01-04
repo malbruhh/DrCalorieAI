@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <link rel="icon" type="image/x-icon" href="/logo_icon.ico">
     <style>
         body { 
             font-family: 'Inter', sans-serif; 
@@ -398,13 +398,19 @@
         </div>
 
         <!--COLUMN 3: GRAPHS -->
-        <div class="lg:col-span-4 glass-panel bg-white rounded-[32px] shadow-sm border border-gray-200 p-6 overflow-y-auto no-scrollbar max-h-[677px]">
-            <h2 class="text-red-500 font-bold text-lg mb-4" ><i class="fa-solid fa-chart-area mr-2"></i>Food Grade Fuzzification</h2>
-            <h4 class="font-bold text-slate-600 mb-4 text-sm uppercase tracking-wide" id="food-name"></h4>
+        <div class="lg:col-span-4 glass-panel bg-white rounded-[32px] shadow-sm border border-gray-200 flex flex-col max-h-[677px] overflow-hidden">
+    
+        <div class="p-6 pb-2">
+            <h2 class="text-red-500 font-bold text-lg">
+                <i class="fa-solid fa-chart-area mr-2"></i>Food Grade Fuzzification
+            </h2>
+            <h4 class="font-bold text-slate-600 mt-2 text-base uppercase tracking-wide subtitle" id="food-name"></h4>
+        </div>
 
+        <div class="flex-grow overflow-y-auto no-scrollbar p-6 pt-2">
             <div class="space-y-4">
                 <div class="graph-container">
-                     <div class="flex justify-center mb-2">
+                    <div class="flex justify-center mb-2">
                         <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide subtitle">Food Grade Score</h4>
                     </div>
                     <canvas id="outputGraph"></canvas>
