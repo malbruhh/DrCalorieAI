@@ -35,7 +35,10 @@
         .custom-scroll::-webkit-scrollbar { width: 5px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
         body.theme-dark .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
-
+        
+        .no-scrollbar::-webkit-scrollbar {display: none; /* Safari and Chrome */}
+        .no-scrollbar {-ms-overflow-style: none; scrollbar-width: none;  /* Firefox */ /* Internet Explorer 10+ */}   
+        
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
@@ -68,6 +71,7 @@
         
         body.theme-dark .bar-placeholder { background-color: rgba(255, 255, 255, 0.2); }
         
+        body.theme-dark .subtitle { color: #d6d6d6; }
         body.theme-dark .item-card { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); }
         body.theme-dark .bg-history h2 { color: #4ade80; }
         body.theme-dark .bg-tracker h2 { color: #fb923c; }
@@ -190,31 +194,38 @@
     </style>
 </head>
 <body class="min-h-screen flex flex-col p-4 lg:p-8 overflow-auto">
-    <!-- Logo -->
+    <!-- Logo and header-->
     <header class="mb-6 flex-shrink-0 flex justify-between items-start">
-        <div class="w-[180px] h-[100px] glass-panel bg-white/50 rounded-3xl flex items-center justify-center text-gray-400 font-medium shadow-sm">
-            <div class="text-center">
-                <i class="fa-solid fa-image text-2xl mb-1 block opacity-20"></i>
-                <span class="opacity-50 text-sm">LOGO (180x100)</span>
-            </div>
+    <div class="flex items-center gap-4"> 
+        <div class="w-[180px] h-[100px] glass-panel bg-white/50 rounded-3xl flex items-center justify-center shadow-sm overflow-hidden">
+            <img src="\logo_cropped-transparent.png" alt="Company Logo" class="max-w-full max-h-full object-contain p-4">
         </div>
 
-        <!-- Reset and Theme button-->
-        <div class="flex items-center gap-3">
-            <button onclick="resetApp()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-10 h-10 rounded-full flex items-center justify-center transition shadow-sm active:scale-90" title="Reset App">
-                <i class="fa-solid fa-rotate-right"></i>
-            </button>
-            <div class="theme-switch" onclick="toggleTheme()">
-                <div class="knob">
-                    <i id="themeIcon" class="fa-solid fa-sun"></i>
-                </div>
+        <div class="flex flex-col">
+            <h1 class="text-5xl font-bold tracking-tight text-teal-700 leading-tight title">
+                NutriScan AI
+            </h1>
+            <h2 class="text-xl font-medium text-slate-600 subtitle">
+                Your Personalized Calorie Tracker
+            </h2>
+        </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+        <button onclick="resetApp()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-10 h-10 rounded-full flex items-center justify-center transition shadow-sm active:scale-90" title="Reset App">
+            <i class="fa-solid fa-rotate-right"></i>
+        </button>
+        <div class="theme-switch" onclick="toggleTheme()">
+            <div class="knob">
+                <i id="themeIcon" class="fa-solid fa-sun"></i>
             </div>
         </div>
-    </header>
+    </div>
+</header>
 
     <div class="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- COLUMN 1: HISTORY -->
-        <div class="lg:col-span-3 glass-panel bg-history p-6 flex flex-col overflow-hidden shadow-sm min-h-[400px] lg:min-h-[600px]">
+        <div class="lg:col-span-3 glass-panel bg-history p-6 flex flex-col overflow-hidden shadow-sm h-fit max-h-[676px]">
             <div class="flex justify-between items-center mb-4 gap-2">
                 <h2 class="text-green-800 font-bold text-lg">History</h2>
                 <div class="flex items-center gap-2">
@@ -387,15 +398,14 @@
         </div>
 
         <!--COLUMN 3: GRAPHS -->
-        <div class="bg-fuzzy lg:col-span-4 glass-panel bg-white rounded-[32px] shadow-sm border border-gray-200 p-6 overflow-y-auto custom-scroll">
+        <div class="lg:col-span-4 glass-panel bg-white rounded-[32px] shadow-sm border border-gray-200 p-6 overflow-y-auto no-scrollbar max-h-[677px]">
             <h2 class="text-red-500 font-bold text-lg mb-4" ><i class="fa-solid fa-chart-area mr-2"></i>Food Grade Fuzzification</h2>
             <h4 class="font-bold text-slate-600 mb-4 text-sm uppercase tracking-wide" id="food-name"></h4>
 
-            
             <div class="space-y-4">
                 <div class="graph-container">
                      <div class="flex justify-center mb-2">
-                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide">Food Grade Score</h4>
+                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide subtitle">Food Grade Score</h4>
                     </div>
                     <canvas id="outputGraph"></canvas>
                 </div>
@@ -406,21 +416,21 @@
 
                 <div class="graph-container">
                     <div class="flex justify-center mb-2">
-                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide">Calorie Threshold</h4>
+                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide subtitle">Calorie Threshold</h4>
                     </div>
                     <canvas id="calGraph"></canvas>
                 </div>
 
                 <div class="graph-container">
                     <div class="flex justify-center mb-2">
-                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide">Protein Threshold</h4>
+                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide subtitle">Protein Threshold</h4>
                     </div>
                     <canvas id="proGraph"></canvas>
                 </div>
                 
                 <div class="graph-container">
                     <div class="flex justify-center mb-2">
-                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide">Fat Threshold</h4>
+                        <h4 class="font-bold text-slate-600 text-sm uppercase tracking-wide subtitle">Fat Threshold</h4>
                     </div>
                     <canvas id="fatGraph"></canvas>
                 </div>

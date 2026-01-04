@@ -325,11 +325,6 @@ function calculateFuzzyHealth(calories = 0, protein = 0, fats = 0, sugar = 0) {
 
     let category, colorName;
 
-    // Calculate midpoints to find the "closest" singleton
-    // Midpoint between 95 and 75 = 85
-    // Midpoint between 75 and 55 = 65
-    // Midpoint between 55 and 35 = 45
-    // Midpoint between 35 and 10 = 22.5
     if (finalScore >= 85) {
         category = "Very Healthy";
         colorName = "emerald";
@@ -596,12 +591,16 @@ function drawFuzzyGraph(canvasId, type, currentValue) {
             },
             scales: {
                 x: {
+                    type: 'linear',
+                    min: 0,
+                    max: xMax,
                     title: {
                         display: true,
                         text: xLabel,
                         font: { size: 10 }
                     },
                     ticks: { 
+                        stepSize: 5,
                         maxTicksLimit: 8, 
                         font: { size: 9 } 
                     }
@@ -634,7 +633,7 @@ function updateSugenoUI(rules, score) {
     const sugenoElem = document.getElementById("sugenoCalc");
     if (sugenoElem) {
         sugenoElem.innerHTML = `
-            <strong class="block mb-2">Sugeno Weighted Average</strong>
+            <strong class="block mb-2">Sugeno Weighted Average Σ(wi × zi) / Σ(wi)</strong>
             <div class="text-xs space-y-1">
                 <div>Σ(w × z) = ${num.toFixed(3)}</div>
                 <div>Σ(w) = ${den.toFixed(3)}</div>
